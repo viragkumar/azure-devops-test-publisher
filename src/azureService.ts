@@ -26,11 +26,13 @@ export class AzureDevOpsService {
       this.config.planId,
       this.config.suiteId,
     );
+    console.log("Fetched test points:", points);
 
     const targetCaseIds = new Set(results.map((r) => r.testCaseId));
     const matchedPoints = points.filter(
       (p) => p.testCase?.id && targetCaseIds.has(parseInt(p.testCase.id, 10)),
     );
+    console.log("Matched test points:", matchedPoints);
 
     if (matchedPoints.length === 0) {
       console.warn(
@@ -40,6 +42,7 @@ export class AzureDevOpsService {
     }
 
     const pointIds = matchedPoints.map((p) => p.id!);
+    console.log("Point IDs for the test run:", pointIds);
 
     // Extract unique configuration IDs from matched points (or fallback to empty array/default)
     const configurationIds = Array.from(
@@ -51,6 +54,7 @@ export class AzureDevOpsService {
           .filter((id): id is number => id !== null),
       ),
     );
+    console.log("Configuration IDs for the test run:", configurationIds);
 
     // 2. Create the Test Run with configurationIds included
     const runName =
@@ -77,11 +81,12 @@ export class AzureDevOpsService {
     );
 
     // 4. Map outcomes and error messages
+    console.log("Run results fetched from Azure DevOps:", runResults);
     const updatedResults: TestCaseResult[] = runResults.map((result) => {
       const match = results.find(
         (r) => r.testCaseId.toString() === result.testCase?.id,
       );
-
+      console.log("Mapping local results to run results. Match found:", match);
       return {
         ...result,
         outcome: match ? match.outcome : "Inconclusive",

@@ -1,5 +1,5 @@
-import { AzureDevOpsService } from './azureService';
-import { AzureDevOpsOptions, TestAttachment, TestResultItem } from './types';
+import { AzureDevOpsService } from "./azureService";
+import { AzureDevOpsOptions, TestAttachment, TestResultItem } from "./types";
 
 export class AzureDevOpsReporterService {
   private options: AzureDevOpsOptions;
@@ -13,7 +13,7 @@ export class AzureDevOpsReporterService {
     test: { title: string; duration: number },
     _context: unknown,
     results: { passed: boolean; error?: Error },
-    browserInstance?: { takeScreenshot: () => Promise<string> }
+    browserInstance?: { takeScreenshot: () => Promise<string> },
   ): Promise<void> {
     const caseId = this.extractTestCaseId(test.title);
     if (!caseId) return;
@@ -26,19 +26,19 @@ export class AzureDevOpsReporterService {
         attachments.push({
           fileName: `failure-C${caseId}.png`,
           base64Content: base64Png,
-          comment: `Failure screenshot for test: ${test.title}`
+          comment: `Failure screenshot for test: ${test.title}`,
         });
       } catch (err) {
-        console.error('Failed to capture browser screenshot:', err);
+        console.error("Failed to capture browser screenshot:", err);
       }
     }
 
     this.results.push({
       testCaseId: caseId,
-      outcome: results.passed ? 'Passed' : 'Failed',
+      outcome: results.passed ? "Passed" : "Failed",
       errorMessage: results.error?.message,
       durationInMs: test.duration,
-      attachments
+      attachments,
     });
   }
 
@@ -51,9 +51,10 @@ export class AzureDevOpsReporterService {
 
   private extractTestCaseId(title: string): number | null {
     const match = title.match(/C(\d+)/i) || title.match(/#(\d+)/);
+    console.log("Extracted test case ID match:", match);
     return match ? parseInt(match[1], 10) : null;
   }
 }
 
-export * from './types';
-export * from './azureService';
+export * from "./types";
+export * from "./azureService";
