@@ -1,30 +1,23 @@
 {
-  "name": "ado-test-adapter",
+  "name": "@your-scope/wdio-azure-devops-service",
   "version": "1.0.0",
-  "description": "Azure DevOps test results and failure screenshot adapter for WebdriverIO and Node.js",
-  "main": "index.js",
-  "exports": {
-    ".": "./index.js",
-    "./wdio": "./wdio.js"
-  },
+  "description": "Upload test results and screenshots to Azure DevOps Test Plans from WebdriverIO or custom TS runners",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "test": "jest"
+    "build": "rimraf dist && tsc",
+    "prepublishOnly": "npm run build",
+    "test": "jest --config tests/jest.config.js --rootDir ."
   },
-  "keywords": [
-    "azure-devops",
-    "ado",
-    "webdriverio",
-    "wdio",
-    "wdio-service",
-    "test-results"
-  ],
-  "author": "",
-  "license": "MIT",
   "dependencies": {
-    "azure-devops-node-api": "^12.5.0"
+    "azure-devops-node-api": "^12.0.0"
   },
   "devDependencies": {
-    "jest": "^29.7.0",
-    "nock": "^13.5.0"
+    "@types/jest": "^30.0.0",
+    "@types/node": "^20.0.0",
+    "jest": "^30.5.1",
+    "rimraf": "^5.0.0",
+    "ts-jest": "^29.4.12",
+    "typescript": "^5.0.0"
   }
 }
