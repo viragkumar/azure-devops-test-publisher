@@ -1,7 +1,7 @@
-import { AzureDevOpsReporterService } from "../../src/index";
+import { AzureDevOpsReporterService } from "../src/index";
 import dotenv from "dotenv";
 import path from "path";
-dotenv.config({ path: path.resolve(__dirname, "../../.env") });
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 // Real end-to-end test against a live Azure DevOps org - no mocks.
 // Requires these env vars to be set, otherwise the suite is skipped:
 //   AZURE_ORG_URL     e.g. https://dev.azure.com/your-org

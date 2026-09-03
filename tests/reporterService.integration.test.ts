@@ -1,4 +1,4 @@
-import { AzureDevOpsReporterService } from "../../src/index";
+import { AzureDevOpsReporterService } from "../src/index";
 import * as azdev from "azure-devops-node-api";
 
 // Only mock the external Azure DevOps API boundary; exercise the real
