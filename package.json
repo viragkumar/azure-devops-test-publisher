@@ -1,0 +1,30 @@
+{
+  "name": "ado-test-adapter",
+  "version": "1.0.0",
+  "description": "Azure DevOps test results and failure screenshot adapter for WebdriverIO and Node.js",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./wdio": "./wdio.js"
+  },
+  "scripts": {
+    "test": "jest"
+  },
+  "keywords": [
+    "azure-devops",
+    "ado",
+    "webdriverio",
+    "wdio",
+    "wdio-service",
+    "test-results"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "azure-devops-node-api": "^12.5.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nock": "^13.5.0"
+  }
+}
