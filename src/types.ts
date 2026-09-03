@@ -6,6 +6,17 @@ export interface AzureDevOpsOptions {
   suiteId: number;
   runName?: string;
   caseIdMapping?: Record<string, number>;
+  /** Reuse this already existing test run instead of creating a new one. */
+  runId?: number;
+  /** Publish every batch into a single run, created on the first publish. */
+  reuseTestRun?: boolean;
+}
+
+export interface PublishOptions {
+  /** Publish into this existing run instead of creating a new one. */
+  runId?: number;
+  /** Leave the run in progress so more results can be added later. */
+  keepRunOpen?: boolean;
 }
 
 export interface TestAttachment {
@@ -17,7 +28,7 @@ export interface TestAttachment {
 
 export interface TestResultItem {
   testCaseId: number;
-  outcome: 'Passed' | 'Failed' | 'Inconclusive';
+  outcome: "Passed" | "Failed" | "Inconclusive";
   errorMessage?: string;
   durationInMs?: number;
   attachments?: TestAttachment[];

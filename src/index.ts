@@ -4,6 +4,7 @@ import { AzureDevOpsOptions, TestAttachment, TestResultItem } from "./types";
 export class AzureDevOpsReporterService {
   private options: AzureDevOpsOptions;
   private results: TestResultItem[] = [];
+  private ado?: AzureDevOpsService;
 
   constructor(options: AzureDevOpsOptions) {
     this.options = options;
@@ -45,8 +46,14 @@ export class AzureDevOpsReporterService {
   async onComplete(): Promise<void> {
     if (this.results.length === 0) return;
 
-    const ado = new AzureDevOpsService(this.options);
-    await ado.publishResults(this.results);
+    this.ado ??= new AzureDevOpsService(this.options);
+    await this.ado.publishResults(this.results);
+    this.results = [];
+  }
+
+  /** Completes the shared test run when `reuseTestRun` keeps it open. */
+  async completeRun(): Promise<void> {
+    await this.ado?.completeRun();
   }
 
   private extractTestCaseId(title: string): number | null {

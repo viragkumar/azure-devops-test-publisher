@@ -4,20 +4,30 @@ import {
   TestCaseResult,
   TestAttachmentRequestModel,
 } from "azure-devops-node-api/interfaces/TestInterfaces";
-import { AzureDevOpsOptions, TestResultItem } from "./types";
+import { AzureDevOpsOptions, PublishOptions, TestResultItem } from "./types";
 
 export class AzureDevOpsService {
   private testApiPromise: Promise<ITestApi>;
   private config: AzureDevOpsOptions;
+  private currentRunId?: number;
 
   constructor(config: AzureDevOpsOptions) {
     this.config = config;
+    this.currentRunId = config.runId;
     const authHandler = azdev.getPersonalAccessTokenHandler(config.token);
     const connection = new azdev.WebApi(config.orgUrl, authHandler);
     this.testApiPromise = connection.getTestApi();
   }
 
-  async publishResults(results: TestResultItem[]): Promise<void> {
+  /** Id of the run currently being published to, if any. */
+  get runId(): number | undefined {
+    return this.currentRunId;
+  }
+
+  async publishResults(
+    results: TestResultItem[],
+    options: PublishOptions = {},
+  ): Promise<number | undefined> {
     const testApi = await this.testApiPromise;
 
     // 1. Get test points matching the local test cases
@@ -56,51 +66,84 @@ export class AzureDevOpsService {
     );
     console.log("Configuration IDs for the test run:", configurationIds);
 
-    // 2. Create the Test Run with configurationIds included
-    const runName =
-      this.config.runName || `Automated Test Run - ${new Date().toISOString()}`;
-    const testRun = await testApi.createTestRun(
-      {
-        name: runName,
-        automated: true,
-        plan: { id: this.config.planId.toString() },
-        pointIds: pointIds,
-        configurationIds: configurationIds, // Fixes TS2345
-      },
-      this.config.projectName,
-    );
+    // 2. Reuse the existing Test Run when asked, otherwise create a new one
+    const reusedRunId =
+      options.runId ??
+      (this.config.reuseTestRun ? this.currentRunId : undefined) ??
+      this.config.runId;
+    let runId: number;
 
-    if (!testRun.id) {
-      throw new Error("Failed to create Test Run in Azure DevOps.");
+    if (reusedRunId) {
+      runId = reusedRunId;
+      // Add the points to the existing run so results exist for them
+      await testApi.addTestResultsToTestRun(
+        matchedPoints.map((p) => ({
+          testPoint: { id: p.id!.toString() },
+          testCase: { id: p.testCase!.id },
+          configuration: p.configuration?.id
+            ? { id: p.configuration.id }
+            : undefined,
+        })),
+        this.config.projectName,
+        runId,
+      );
+    } else {
+      const runName =
+        this.config.runName ||
+        `Automated Test Run - ${new Date().toISOString()}`;
+      const testRun = await testApi.createTestRun(
+        {
+          name: runName,
+          automated: true,
+          plan: { id: this.config.planId.toString() },
+          pointIds: pointIds,
+          configurationIds: configurationIds, // Fixes TS2345
+        },
+        this.config.projectName,
+      );
+
+      if (!testRun.id) {
+        throw new Error("Failed to create Test Run in Azure DevOps.");
+      }
+      runId = testRun.id;
     }
+
+    this.currentRunId = runId;
 
     // 3. Fetch automatically created results for the run
     const runResults = await testApi.getTestResults(
       this.config.projectName,
-      testRun.id,
+      runId,
     );
 
     // 4. Map outcomes and error messages
     console.log("Run results fetched from Azure DevOps:", runResults);
-    const updatedResults: TestCaseResult[] = runResults.map((result) => {
-      const match = results.find(
-        (r) => r.testCaseId.toString() === result.testCase?.id,
-      );
-      console.log("Mapping local results to run results. Match found:", match);
-      return {
-        ...result,
-        outcome: match ? match.outcome : "Inconclusive",
-        errorMessage: match?.errorMessage || "",
-        state: "Completed",
-        durationInMs: match?.durationInMs || 0,
-      };
-    });
+    const updatedResults: TestCaseResult[] = runResults
+      .filter((result) =>
+        results.some((r) => r.testCaseId.toString() === result.testCase?.id),
+      )
+      .map((result) => {
+        const match = results.find(
+          (r) => r.testCaseId.toString() === result.testCase?.id,
+        );
+        console.log(
+          "Mapping local results to run results. Match found:",
+          match,
+        );
+        return {
+          ...result,
+          outcome: match ? match.outcome : "Inconclusive",
+          errorMessage: match?.errorMessage || "",
+          state: "Completed",
+          durationInMs: match?.durationInMs || 0,
+        };
+      });
 
     // 5. Update test results in ADO
     const savedResults = await testApi.updateTestResults(
       updatedResults,
       this.config.projectName,
-      testRun.id,
+      runId,
     );
 
     // 6. Upload Attachments
@@ -126,18 +169,34 @@ export class AzureDevOpsService {
           await testApi.createTestResultAttachment(
             attachmentModel,
             this.config.projectName,
-            testRun.id,
+            runId,
             savedResult.id,
           );
         }
       }
     }
 
-    // 7. Complete the Test Run
+    // 7. Complete the Test Run unless more results are still to come
+    const keepRunOpen =
+      options.keepRunOpen ?? this.config.reuseTestRun ?? false;
+    if (!keepRunOpen) {
+      await this.completeRun(runId);
+    }
+
+    return runId;
+  }
+
+  /** Marks a run as completed. Defaults to the run used by the last publish. */
+  async completeRun(runId = this.currentRunId): Promise<void> {
+    if (!runId) return;
+    const testApi = await this.testApiPromise;
     await testApi.updateTestRun(
       { state: "Completed" },
       this.config.projectName,
-      testRun.id,
+      runId,
     );
+    if (runId === this.currentRunId) {
+      this.currentRunId = undefined;
+    }
   }
 }
