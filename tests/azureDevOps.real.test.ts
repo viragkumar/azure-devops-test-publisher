@@ -171,4 +171,58 @@ describeIfConfigured("AzureDevOpsReporterService (real Azure DevOps)", () => {
 
     if (runIdBackup) process.env[RUN_ID_ENV_VAR] = runIdBackup;
   });
+
+  test("attaches a screenshot to a failed result", async () => {
+    const caseId = parseInt(AZURE_TEST_CASE_ID!, 10);
+    // 1x1 transparent PNG, base64-encoded.
+    const fakeScreenshot =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+
+    const service = new AzureDevOpsService({
+      orgUrl: AZURE_ORG_URL!,
+      token: AZURE_PAT!,
+      projectName: AZURE_PROJECT!,
+      planId: parseInt(AZURE_PLAN_ID!, 10),
+      suiteId: parseInt(AZURE_SUITE_ID!, 10),
+      runName: `Screenshot run - ${new Date().toISOString()}`,
+    });
+
+    const runId = await service.publishResults([
+      {
+        testCaseId: caseId,
+        outcome: "Failed",
+        errorMessage: "Real integration failure with screenshot",
+        durationInMs: 42,
+        attachments: [
+          {
+            fileName: `failure-C${caseId}.png`,
+            base64Content: fakeScreenshot,
+            comment: "Failure screenshot for real integration test",
+          },
+        ],
+      },
+    ]);
+
+    expect(runId).toBeDefined();
+
+    const connection = new azdev.WebApi(
+      AZURE_ORG_URL!,
+      azdev.getPersonalAccessTokenHandler(AZURE_PAT!),
+    );
+    const testApi = await connection.getTestApi();
+    const runResults = await testApi.getTestResults(AZURE_PROJECT!, runId!);
+    const result = runResults.find((r) => r.testCase?.id === caseId.toString());
+
+    expect(result).toBeDefined();
+    expect(result?.outcome).toBe("Failed");
+
+    const attachments = await testApi.getTestResultAttachments(
+      AZURE_PROJECT!,
+      runId!,
+      result!.id!,
+    );
+    expect(
+      attachments.some((a) => a.fileName === `failure-C${caseId}.png`),
+    ).toBe(true);
+  });
 });

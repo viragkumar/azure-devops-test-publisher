@@ -8,7 +8,8 @@
     "build": "rimraf dist && tsc",
     "prepublishOnly": "npm run build",
     "test:unit": "jest --config tests/jest.config.js --rootDir .",
-    "test:real": "jest --config tests/jest.real.config.js --rootDir ."
+    "test:real": "jest --config tests/jest.real.config.js --rootDir .",
+    "test": "npm run test:unit && npm run test:real"
   },
   "dependencies": {
     "azure-devops-node-api": "^12.0.0"

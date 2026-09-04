@@ -35,7 +35,9 @@ npm run build   # compiles to dist/ with type declarations
 Register the service in `wdio.conf.js` / `wdio.conf.ts`:
 
 ```js
-const { AzureDevOpsWdioService } = require("@your-scope/wdio-azure-devops-service");
+const {
+  AzureDevOpsWdioService,
+} = require("@your-scope/wdio-azure-devops-service");
 
 exports.config = {
   // ...
@@ -140,32 +142,32 @@ await ado.publishResults([
 
 ### `AzureDevOpsOptions`
 
-| Option | Type | Description |
-| --- | --- | --- |
-| `orgUrl` | `string` | Azure DevOps organization URL. |
-| `token` | `string` | Personal access token with Test Plan read/write permissions. |
-| `projectName` | `string` | Azure DevOps project name. |
-| `planId` | `number` | Test plan id. |
-| `suiteId` | `number` | Test suite id within the plan. |
-| `runName` | `string?` | Custom name for created runs. |
-| `runId` | `number?` | Reuse this existing run instead of creating a new one. |
-| `reuseTestRun` | `boolean?` | Keep a single run open across multiple `publishResults` calls. |
-| `caseIdPattern` | `RegExp?` | Custom regex (one capturing group) for extracting the test case id. |
-| `caseIdMapping` | `Record<string, number>?` | Optional explicit title-to-case-id mapping. |
+| Option          | Type                      | Description                                                         |
+| --------------- | ------------------------- | ------------------------------------------------------------------- |
+| `orgUrl`        | `string`                  | Azure DevOps organization URL.                                      |
+| `token`         | `string`                  | Personal access token with Test Plan read/write permissions.        |
+| `projectName`   | `string`                  | Azure DevOps project name.                                          |
+| `planId`        | `number`                  | Test plan id.                                                       |
+| `suiteId`       | `number`                  | Test suite id within the plan.                                      |
+| `runName`       | `string?`                 | Custom name for created runs.                                       |
+| `runId`         | `number?`                 | Reuse this existing run instead of creating a new one.              |
+| `reuseTestRun`  | `boolean?`                | Keep a single run open across multiple `publishResults` calls.      |
+| `caseIdPattern` | `RegExp?`                 | Custom regex (one capturing group) for extracting the test case id. |
+| `caseIdMapping` | `Record<string, number>?` | Optional explicit title-to-case-id mapping.                         |
 
 ### `AzureDevOpsWdioOptions` (extends `AzureDevOpsOptions`)
 
-| Option | Type | Description |
-| --- | --- | --- |
+| Option                | Type       | Description                                                        |
+| --------------------- | ---------- | ------------------------------------------------------------------ |
 | `screenshotOnFailure` | `boolean?` | Attach a browser screenshot to failed results. Defaults to `true`. |
 
 ### `PublishOptions`
 
-| Option | Type | Description |
-| --- | --- | --- |
-| `runId` | `number?` | Publish into this existing run instead of creating a new one. |
-| `points` | `TestPoint[]?` | Reuse already-fetched test points instead of calling `getPoints` again. |
-| `keepRunOpen` | `boolean?` | Leave the run in progress so more results can be added later. |
+| Option        | Type           | Description                                                             |
+| ------------- | -------------- | ----------------------------------------------------------------------- |
+| `runId`       | `number?`      | Publish into this existing run instead of creating a new one.           |
+| `points`      | `TestPoint[]?` | Reuse already-fetched test points instead of calling `getPoints` again. |
+| `keepRunOpen` | `boolean?`     | Leave the run in progress so more results can be added later.           |
 
 ## Development
 
