@@ -212,11 +212,13 @@ export class AzureDevOpsService {
       });
 
     // 5. Update test results in ADO
+    this.debug("Updating test results in Azure DevOps:", updatedResults);
     const savedResults = await testApi.updateTestResults(
       updatedResults,
       this.config.projectName,
       runId,
     );
+    this.debug("Saved test results:", savedResults);
 
     // The real API doesn't always echo `testCase` back on the updated results,
     // so fall back to the id->caseId mapping we already know from step 4.
@@ -250,13 +252,25 @@ export class AzureDevOpsService {
             attachmentType: attachment.attachmentType || "GeneralAttachment",
           };
 
-          await testApi.createTestResultAttachment(
+          // Log metadata only; the base64 stream is far too large to print.
+          this.debug("Uploading attachment:", {
+            resultId: savedResult.id,
+            caseId,
+            fileName: attachmentModel.fileName,
+            attachmentType: attachmentModel.attachmentType,
+            base64Length: attachment.base64Content?.length ?? 0,
+          });
+
+          const savedAttachment = await testApi.createTestResultAttachment(
             attachmentModel,
             this.config.projectName,
             runId,
             savedResult.id,
           );
+          this.debug("Attachment uploaded:", savedAttachment);
         }
+      } else {
+        this.debug("No attachments to upload for case:", caseId);
       }
     }
 

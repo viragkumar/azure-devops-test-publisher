@@ -76,12 +76,22 @@ export class AzureDevOpsWdioService {
 
   // --- worker process hooks ---
 
+  private debug(message: string, payload?: unknown): void {
+    if (!this.options.debug) return;
+    console.log(message, payload);
+  }
+
   async afterTest(
     test: WdioTest,
     _context: unknown,
     results: WdioTestResult,
   ): Promise<void> {
     const caseId = extractTestCaseId(test.title, this.options.caseIdPattern);
+    this.debug("Extracted case id from test title:", {
+      title: test.title,
+      pattern: String(this.options.caseIdPattern ?? "default C123/#123"),
+      caseId,
+    });
     if (!caseId) return;
 
     this.results.push({
@@ -162,11 +172,27 @@ export class AzureDevOpsWdioService {
 
   private extractCucumberCaseId(world: CucumberWorld): number | null {
     const pattern = this.options.caseIdPattern;
-    for (const tag of world.pickle.tags ?? []) {
+    const tags = world.pickle.tags ?? [];
+    this.debug("Scanning scenario tags for case id:", {
+      scenario: world.pickle.name,
+      tags: tags.map((t) => t.name),
+      pattern: String(pattern ?? "default C123/#123"),
+    });
+
+    for (const tag of tags) {
       const caseId = extractTestCaseId(tag.name, pattern);
-      if (caseId) return caseId;
+      if (caseId) {
+        this.debug("Matched case id from tag:", { tag: tag.name, caseId });
+        return caseId;
+      }
     }
-    return extractTestCaseId(world.pickle.name, pattern);
+
+    const fromName = extractTestCaseId(world.pickle.name, pattern);
+    this.debug("No tag matched; fell back to scenario name:", {
+      scenario: world.pickle.name,
+      caseId: fromName,
+    });
+    return fromName;
   }
 
   private resolveRunId(): number | undefined {

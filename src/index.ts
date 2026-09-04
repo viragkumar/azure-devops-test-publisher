@@ -66,7 +66,15 @@ export class AzureDevOpsReporterService {
   }
 
   private extractTestCaseId(title: string): number | null {
-    return extractTestCaseId(title, this.options.caseIdPattern);
+    const caseId = extractTestCaseId(title, this.options.caseIdPattern);
+    if (this.options.debug) {
+      console.log("Extracted case id from test title:", {
+        title,
+        pattern: String(this.options.caseIdPattern ?? "default C123/#123"),
+        caseId,
+      });
+    }
+    return caseId;
   }
 }
 

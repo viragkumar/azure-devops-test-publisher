@@ -41,7 +41,7 @@ exports.config = {
       {
         orgUrl: process.env.AZURE_ORG_URL,
         token: process.env.AZURE_PAT,
-        projectName: "MyProject",
+        projectName: "MyProject", // name or GUID
         planId: 123,
         suiteId: 456,
         screenshotOnFailure: true, // optional, defaults to true
@@ -140,7 +140,7 @@ await ado.publishResults([
 | --------------- | ---------- | ------------------------------------------------------------------- |
 | `orgUrl`        | `string`   | Azure DevOps organization URL.                                      |
 | `token`         | `string`   | Personal access token with Test Plan read/write permissions.        |
-| `projectName`   | `string`   | Azure DevOps project name.                                          |
+| `projectName`   | `string`   | Azure DevOps project **name or id (GUID)** — both are accepted.     |
 | `planId`        | `number`   | Test plan id.                                                       |
 | `suiteId`       | `number`   | Test suite id within the plan.                                      |
 | `runName`       | `string?`  | Custom name for created runs.                                       |
@@ -148,6 +148,8 @@ await ado.publishResults([
 | `reuseTestRun`  | `boolean?` | Keep a single run open across multiple `publishResults` calls.      |
 | `caseIdPattern` | `RegExp?`  | Custom regex (one capturing group) for extracting the test case id. |
 | `debug`         | `boolean?` | Log raw Azure DevOps API payloads. Defaults to `false`.             |
+
+> **Note on `projectName`** — despite the name, this accepts either the project's display name (`"MyProject"`) or its GUID (`"b9e8c7cb-..."`). Prefer the GUID: it stays stable if the project is ever renamed, and it avoids URL-encoding issues with names that contain spaces. You can find it at `https://dev.azure.com/<org>/_apis/projects`.
 
 ### `AzureDevOpsWdioOptions` (extends `AzureDevOpsOptions`)
 

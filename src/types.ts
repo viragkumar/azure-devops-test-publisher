@@ -3,6 +3,7 @@ import { TestPoint } from "azure-devops-node-api/interfaces/TestInterfaces";
 export interface AzureDevOpsOptions {
   orgUrl: string;
   token: string;
+  /** Project display name or its GUID; Azure DevOps accepts either. */
   projectName: string;
   planId: number;
   suiteId: number;
