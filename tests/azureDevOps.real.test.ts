@@ -1,4 +1,9 @@
-import { AzureDevOpsReporterService, AzureDevOpsService } from "../src/index";
+import {
+  AzureDevOpsReporterService,
+  AzureDevOpsService,
+  AzureDevOpsWdioService,
+  RUN_ID_ENV_VAR,
+} from "../src/index";
 import * as azdev from "azure-devops-node-api";
 import dotenv from "dotenv";
 import path from "path";
@@ -107,5 +112,63 @@ describeIfConfigured("AzureDevOpsReporterService (real Azure DevOps)", () => {
       expect.arrayContaining([caseId.toString(), secondCaseId.toString()]),
     );
     expect(runResults.some((r) => r.outcome === "Failed")).toBe(true);
+  });
+
+  test("wdio service hooks publish every spec into one run", async () => {
+    const runIdBackup = process.env[RUN_ID_ENV_VAR];
+    delete process.env[RUN_ID_ENV_VAR];
+
+    const service = new AzureDevOpsWdioService({
+      orgUrl: AZURE_ORG_URL!,
+      token: AZURE_PAT!,
+      projectName: AZURE_PROJECT!,
+      planId: parseInt(AZURE_PLAN_ID!, 10),
+      suiteId: parseInt(AZURE_SUITE_ID!, 10),
+      runName: `WDIO run - ${new Date().toISOString()}`,
+    });
+
+    const caseId = parseInt(AZURE_TEST_CASE_ID!, 10);
+    const secondCaseId = AZURE_TEST_CASE_ID_2
+      ? parseInt(AZURE_TEST_CASE_ID_2, 10)
+      : caseId;
+
+    await service.onPrepare();
+    const runId = parseInt(process.env[RUN_ID_ENV_VAR]!, 10);
+    expect(runId).toBeGreaterThan(0);
+
+    // First spec worker.
+    await service.afterTest(
+      { title: `C${caseId} wdio first spec` },
+      {},
+      { passed: true, duration: 42 },
+    );
+    await service.after();
+
+    // Second spec worker.
+    await service.afterTest(
+      { title: `C${secondCaseId} wdio second spec` },
+      {},
+      { passed: false, duration: 84, error: new Error("wdio failure") },
+    );
+    await service.after();
+
+    await service.onComplete();
+
+    const connection = new azdev.WebApi(
+      AZURE_ORG_URL!,
+      azdev.getPersonalAccessTokenHandler(AZURE_PAT!),
+    );
+    const testApi = await connection.getTestApi();
+    const run = await testApi.getTestRunById(AZURE_PROJECT!, runId);
+    const runResults = await testApi.getTestResults(AZURE_PROJECT!, runId);
+
+    expect(run.state).toBe("Completed");
+    expect(runResults.map((r) => r.testCase?.id)).toEqual(
+      expect.arrayContaining([caseId.toString(), secondCaseId.toString()]),
+    );
+    expect(runResults.some((r) => r.outcome === "Failed")).toBe(true);
+    expect(process.env[RUN_ID_ENV_VAR]).toBeUndefined();
+
+    if (runIdBackup) process.env[RUN_ID_ENV_VAR] = runIdBackup;
   });
 });

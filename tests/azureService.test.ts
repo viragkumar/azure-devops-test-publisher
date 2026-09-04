@@ -102,9 +102,10 @@ describe("AzureDevOpsService", () => {
       { id: 10, testCase: { id: "1001" }, configuration: { id: "1" } },
     ]);
     mockTestApi.addTestResultsToTestRun.mockResolvedValue([{ id: 1 }]);
-    mockTestApi.getTestResults.mockResolvedValue([
-      { id: 1, testCase: { id: "1001" } },
-    ]);
+    // The run holds no result for the case yet, then it does once added.
+    mockTestApi.getTestResults
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([{ id: 1, testCase: { id: "1001" } }]);
     mockTestApi.updateTestResults.mockResolvedValue([
       { id: 1, testCase: { id: "1001" } },
     ]);
@@ -164,7 +165,8 @@ describe("AzureDevOpsService", () => {
     ]);
 
     expect(mockTestApi.createTestRun).toHaveBeenCalledTimes(1);
-    expect(mockTestApi.addTestResultsToTestRun).toHaveBeenCalledTimes(1);
+    // The run already has a result for the case, so nothing is added twice.
+    expect(mockTestApi.addTestResultsToTestRun).not.toHaveBeenCalled();
     expect(mockTestApi.updateTestRun).not.toHaveBeenCalled();
 
     await reusingService.completeRun();
@@ -190,9 +192,9 @@ describe("AzureDevOpsService", () => {
       { id: 10, testCase: { id: "1001" }, configuration: { id: "1" } },
     ]);
     mockTestApi.addTestResultsToTestRun.mockResolvedValue([{ id: 1 }]);
-    mockTestApi.getTestResults.mockResolvedValue([
-      { id: 1, testCase: { id: "1001" } },
-    ]);
+    mockTestApi.getTestResults
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([{ id: 1, testCase: { id: "1001" } }]);
     mockTestApi.updateTestResults.mockResolvedValue([
       { id: 1, testCase: { id: "1001" } },
     ]);
@@ -250,8 +252,7 @@ describe("AzureDevOpsService", () => {
     mockTestApi.getTestResults.mockResolvedValue([
       { id: 1, testCase: { id: "1001" } },
       { id: 2, testCase: { id: "1002" } },
-    ]);
-    mockTestApi.updateTestResults.mockResolvedValue([
+    ]);    mockTestApi.updateTestResults.mockResolvedValue([
       { id: 2, testCase: { id: "1002" } },
     ]);
 

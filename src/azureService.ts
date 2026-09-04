@@ -24,6 +24,49 @@ export class AzureDevOpsService {
     return this.currentRunId;
   }
 
+  /** Creates an empty run covering every point of the configured suite. */
+  async createRun(): Promise<number> {
+    const testApi = await this.testApiPromise;
+    const points = await testApi.getPoints(
+      this.config.projectName,
+      this.config.planId,
+      this.config.suiteId,
+    );
+
+    const pointIds = points
+      .map((p) => p.id)
+      .filter((id): id is number => typeof id === "number");
+    const configurationIds = Array.from(
+      new Set(
+        points
+          .map((p) =>
+            p.configuration?.id ? parseInt(p.configuration.id, 10) : null,
+          )
+          .filter((id): id is number => id !== null),
+      ),
+    );
+
+    const testRun = await testApi.createTestRun(
+      {
+        name:
+          this.config.runName ||
+          `Automated Test Run - ${new Date().toISOString()}`,
+        automated: true,
+        plan: { id: this.config.planId.toString() },
+        pointIds,
+        configurationIds,
+      },
+      this.config.projectName,
+    );
+
+    if (!testRun.id) {
+      throw new Error("Failed to create Test Run in Azure DevOps.");
+    }
+
+    this.currentRunId = testRun.id;
+    return testRun.id;
+  }
+
   async publishResults(
     results: TestResultItem[],
     options: PublishOptions = {},
@@ -75,18 +118,31 @@ export class AzureDevOpsService {
 
     if (reusedRunId) {
       runId = reusedRunId;
-      // Add the points to the existing run so results exist for them
-      await testApi.addTestResultsToTestRun(
-        matchedPoints.map((p) => ({
-          testPoint: { id: p.id!.toString() },
-          testCase: { id: p.testCase!.id },
-          configuration: p.configuration?.id
-            ? { id: p.configuration.id }
-            : undefined,
-        })),
+      // Only add points that the run does not already hold a result for
+      const existingResults = await testApi.getTestResults(
         this.config.projectName,
         runId,
       );
+      const existingCaseIds = new Set(
+        existingResults.map((r) => r.testCase?.id),
+      );
+      const missingPoints = matchedPoints.filter(
+        (p) => !existingCaseIds.has(p.testCase!.id),
+      );
+
+      if (missingPoints.length > 0) {
+        await testApi.addTestResultsToTestRun(
+          missingPoints.map((p) => ({
+            testPoint: { id: p.id!.toString() },
+            testCase: { id: p.testCase!.id },
+            configuration: p.configuration?.id
+              ? { id: p.configuration.id }
+              : undefined,
+          })),
+          this.config.projectName,
+          runId,
+        );
+      }
     } else {
       const runName =
         this.config.runName ||

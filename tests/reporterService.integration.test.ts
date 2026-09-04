@@ -97,10 +97,13 @@ describe("AzureDevOpsReporterService integration", () => {
     ]);
     mockTestApi.createTestRun.mockResolvedValue({ id: 999 });
     mockTestApi.addTestResultsToTestRun.mockResolvedValue([{ id: 2 }]);
-    mockTestApi.getTestResults.mockResolvedValue([
-      { id: 1, testCase: { id: "1234" } },
-      { id: 2, testCase: { id: "5678" } },
-    ]);
+    mockTestApi.getTestResults
+      .mockResolvedValueOnce([{ id: 1, testCase: { id: "1234" } }])
+      .mockResolvedValueOnce([{ id: 1, testCase: { id: "1234" } }])
+      .mockResolvedValue([
+        { id: 1, testCase: { id: "1234" } },
+        { id: 2, testCase: { id: "5678" } },
+      ]);
     mockTestApi.updateTestResults.mockImplementation(
       async (results) => results,
     );

@@ -1,5 +1,6 @@
 import { AzureDevOpsService } from "./azureService";
 import { AzureDevOpsOptions, TestAttachment, TestResultItem } from "./types";
+import { extractTestCaseId } from "./utils";
 
 export class AzureDevOpsReporterService {
   private options: AzureDevOpsOptions;
@@ -57,11 +58,12 @@ export class AzureDevOpsReporterService {
   }
 
   private extractTestCaseId(title: string): number | null {
-    const match = title.match(/C(\d+)/i) || title.match(/#(\d+)/);
-    console.log("Extracted test case ID match:", match);
-    return match ? parseInt(match[1], 10) : null;
+    const caseId = extractTestCaseId(title);
+    console.log("Extracted test case ID:", caseId);
+    return caseId;
   }
 }
 
 export * from "./types";
 export * from "./azureService";
+export * from "./wdioService";

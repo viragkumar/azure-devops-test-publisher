@@ -19,6 +19,11 @@ export interface PublishOptions {
   keepRunOpen?: boolean;
 }
 
+export interface AzureDevOpsWdioOptions extends AzureDevOpsOptions {
+  /** Attach a browser screenshot to failed results. Defaults to true. */
+  screenshotOnFailure?: boolean;
+}
+
 export interface TestAttachment {
   fileName: string;
   base64Content: string;
