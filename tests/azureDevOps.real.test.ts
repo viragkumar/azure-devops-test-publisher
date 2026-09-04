@@ -61,7 +61,7 @@ describeIfConfigured("AzureDevOpsReporterService (real Azure DevOps)", () => {
     const service = new AzureDevOpsReporterService({
       orgUrl: AZURE_ORG_URL!,
       token: AZURE_PAT!,
-      projectName: AZURE_PROJECT!,
+      projectId: AZURE_PROJECT!,
       planId: parseInt(AZURE_PLAN_ID!, 10),
       suiteId: parseInt(AZURE_SUITE_ID!, 10),
     });
@@ -80,7 +80,7 @@ describeIfConfigured("AzureDevOpsReporterService (real Azure DevOps)", () => {
     const service = new AzureDevOpsService({
       orgUrl: AZURE_ORG_URL!,
       token: AZURE_PAT!,
-      projectName: AZURE_PROJECT!,
+      projectId: AZURE_PROJECT!,
       planId: parseInt(AZURE_PLAN_ID!, 10),
       suiteId: parseInt(AZURE_SUITE_ID!, 10),
       runName: `Reused run - ${new Date().toISOString()}`,
@@ -136,7 +136,7 @@ describeIfConfigured("AzureDevOpsReporterService (real Azure DevOps)", () => {
     const service = new AzureDevOpsWdioService({
       orgUrl: AZURE_ORG_URL!,
       token: AZURE_PAT!,
-      projectName: AZURE_PROJECT!,
+      projectId: AZURE_PROJECT!,
       planId: parseInt(AZURE_PLAN_ID!, 10),
       suiteId: parseInt(AZURE_SUITE_ID!, 10),
       runName: `WDIO run - ${new Date().toISOString()}`,
@@ -196,7 +196,7 @@ describeIfConfigured("AzureDevOpsReporterService (real Azure DevOps)", () => {
     const service = new AzureDevOpsService({
       orgUrl: AZURE_ORG_URL!,
       token: AZURE_PAT!,
-      projectName: AZURE_PROJECT!,
+      projectId: AZURE_PROJECT!,
       planId: parseInt(AZURE_PLAN_ID!, 10),
       suiteId: parseInt(AZURE_SUITE_ID!, 10),
       runName: `Screenshot run - ${new Date().toISOString()}`,

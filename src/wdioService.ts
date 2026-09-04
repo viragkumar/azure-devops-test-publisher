@@ -85,6 +85,7 @@ export default class AzureDevOpsWdioService
       errorMessage: results.error?.message,
       durationInMs: results.duration ?? 0,
       attachments: await this.captureScreenshot(caseId, test, results),
+      configurationId: this._options.configurationId,
     });
   }
 
@@ -106,6 +107,7 @@ export default class AzureDevOpsWdioService
         { title: world.pickle.name },
         result,
       ),
+      configurationId: this._options.configurationId,
     });
   }
 

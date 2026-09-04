@@ -33,7 +33,7 @@ describe("AzureDevOpsService", () => {
     service = new AzureDevOpsService({
       orgUrl: "https://dev.azure.com/test-org",
       token: "fake-token",
-      projectName: "TestProject",
+      projectId: "TestProject",
       planId: 100,
       suiteId: 200,
     });
@@ -139,7 +139,7 @@ describe("AzureDevOpsService", () => {
     const reusingService = new AzureDevOpsService({
       orgUrl: "https://dev.azure.com/test-org",
       token: "fake-token",
-      projectName: "TestProject",
+      projectId: "TestProject",
       planId: 100,
       suiteId: 200,
       reuseTestRun: true,
@@ -151,10 +151,10 @@ describe("AzureDevOpsService", () => {
     mockTestApi.createTestRun.mockResolvedValue({ id: 999 });
     mockTestApi.addTestResultsToTestRun.mockResolvedValue([{ id: 1 }]);
     mockTestApi.getTestResults.mockResolvedValue([
-      { id: 1, testCase: { id: "1001" } },
+      { id: 1, testCase: { id: "1001" }, configuration: { id: "1" } },
     ]);
     mockTestApi.updateTestResults.mockResolvedValue([
-      { id: 1, testCase: { id: "1001" } },
+      { id: 1, testCase: { id: "1001" }, configuration: { id: "1" } },
     ]);
 
     await reusingService.publishResults([
@@ -182,7 +182,7 @@ describe("AzureDevOpsService", () => {
     const configuredService = new AzureDevOpsService({
       orgUrl: "https://dev.azure.com/test-org",
       token: "fake-token",
-      projectName: "TestProject",
+      projectId: "TestProject",
       planId: 100,
       suiteId: 200,
       runId: 777,
@@ -319,6 +319,45 @@ describe("AzureDevOpsService", () => {
     consoleSpy.mockRestore();
   });
 
+  test("publishing results for one configuration does not overwrite another configuration's result for the same case", async () => {
+    // Same test case (1001) is configured for both Android (config 1) and iOS (config 2).
+    mockTestApi.getPoints.mockResolvedValue([
+      { id: 10, testCase: { id: "1001" }, configuration: { id: "1" } },
+      { id: 11, testCase: { id: "1001" }, configuration: { id: "2" } },
+    ]);
+    // The shared run already holds results for both configurations.
+    mockTestApi.getTestResults.mockResolvedValue([
+      {
+        id: 1,
+        testCase: { id: "1001" },
+        configuration: { id: "1" },
+        outcome: "Passed",
+      },
+      {
+        id: 2,
+        testCase: { id: "1001" },
+        configuration: { id: "2" },
+        outcome: "Passed",
+      },
+    ]);
+    mockTestApi.updateTestResults.mockResolvedValue([
+      { id: 2, testCase: { id: "1001" }, configuration: { id: "2" } },
+    ]);
+
+    // Only publish a failing iOS (configuration 2) result.
+    await service.publishResults(
+      [{ testCaseId: 1001, outcome: "Failed", configurationId: 2 }],
+      { runId: 555 },
+    );
+
+    // Only the iOS result (id 2) should be updated; the Android result (id 1) is untouched.
+    expect(mockTestApi.updateTestResults).toHaveBeenCalledWith(
+      [expect.objectContaining({ id: 2, outcome: "Failed" })],
+      "TestProject",
+      555,
+    );
+  });
+
   describe("when no PAT is configured", () => {
     let noTokenService: AzureDevOpsService;
     let consoleSpy: jest.SpyInstance;
@@ -329,7 +368,7 @@ describe("AzureDevOpsService", () => {
       noTokenService = new AzureDevOpsService({
         orgUrl: "https://dev.azure.com/test-org",
         token: "",
-        projectName: "TestProject",
+        projectId: "TestProject",
         planId: 100,
         suiteId: 200,
       });

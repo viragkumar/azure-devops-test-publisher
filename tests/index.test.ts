@@ -8,7 +8,7 @@ describe("AzureDevOpsReporterService", () => {
   const mockOptions = {
     orgUrl: "https://dev.azure.com/test-org",
     token: "fake-token",
-    projectName: "TestProject",
+    projectId: "TestProject",
     planId: 101,
     suiteId: 202,
   };

@@ -17,7 +17,7 @@ describe("AzureDevOpsWdioService", () => {
   const options = {
     orgUrl: "https://dev.azure.com/test-org",
     token: "fake-token",
-    projectName: "TestProject",
+    projectId: "TestProject",
     planId: 100,
     suiteId: 200,
   };

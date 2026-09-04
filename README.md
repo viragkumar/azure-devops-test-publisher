@@ -41,7 +41,7 @@ exports.config = {
       {
         orgUrl: process.env.AZURE_ORG_URL,
         token: process.env.AZURE_PAT,
-        projectName: "MyProject", // name or GUID
+        projectId: "MyProject", // name or GUID
         planId: 123,
         suiteId: 456,
         screenshotOnFailure: true, // optional, defaults to true
@@ -95,7 +95,7 @@ import { AzureDevOpsReporterService } from "@virag8/azure-devops-test-publisher"
 const reporter = new AzureDevOpsReporterService({
   orgUrl: process.env.AZURE_ORG_URL!,
   token: process.env.AZURE_PAT!,
-  projectName: "MyProject",
+  projectId: "MyProject",
   planId: 123,
   suiteId: 456,
 });
@@ -118,7 +118,7 @@ import { AzureDevOpsService } from "@virag8/azure-devops-test-publisher";
 const ado = new AzureDevOpsService({
   orgUrl: process.env.AZURE_ORG_URL!,
   token: process.env.AZURE_PAT!,
-  projectName: "MyProject",
+  projectId: "MyProject",
   planId: 123,
   suiteId: 456,
 });
@@ -140,7 +140,7 @@ await ado.publishResults([
 | --------------- | ---------- | ------------------------------------------------------------------- |
 | `orgUrl`        | `string`   | Azure DevOps organization URL.                                      |
 | `token`         | `string`   | Personal access token with Test Plan read/write permissions.        |
-| `projectName`   | `string`   | Azure DevOps project **name or id (GUID)** — both are accepted.     |
+| `projectId`     | `string`   | Azure DevOps project **name or id (GUID)** — both are accepted.     |
 | `planId`        | `number`   | Test plan id.                                                       |
 | `suiteId`       | `number`   | Test suite id within the plan.                                      |
 | `runName`       | `string?`  | Custom name for created runs.                                       |
@@ -149,13 +149,14 @@ await ado.publishResults([
 | `caseIdPattern` | `RegExp?`  | Custom regex (one capturing group) for extracting the test case id. |
 | `debug`         | `boolean?` | Log raw Azure DevOps API payloads. Defaults to `false`.             |
 
-> **Note on `projectName`** — despite the name, this accepts either the project's display name (`"MyProject"`) or its GUID (`"b9e8c7cb-..."`). Prefer the GUID: it stays stable if the project is ever renamed, and it avoids URL-encoding issues with names that contain spaces. You can find it at `https://dev.azure.com/<org>/_apis/projects`.
+> **Note on `projectId`** — despite the name, this accepts either the project's display name (`"MyProject"`) or its GUID (`"b9e8c7cb-..."`). Prefer the GUID: it stays stable if the project is ever renamed, and it avoids URL-encoding issues with names that contain spaces. You can find it at `https://dev.azure.com/<org>/_apis/projects`.
 
 ### `AzureDevOpsWdioOptions` (extends `AzureDevOpsOptions`)
 
-| Option                | Type       | Description                                                        |
-| --------------------- | ---------- | ------------------------------------------------------------------ |
-| `screenshotOnFailure` | `boolean?` | Attach a browser screenshot to failed results. Defaults to `true`. |
+| Option                | Type       | Description                                                                                                                                                                                                                                                                            |
+| --------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `screenshotOnFailure` | `boolean?` | Attach a browser screenshot to failed results. Defaults to `true`.                                                                                                                                                                                                                     |
+| `configurationId`     | `number?`  | Azure DevOps test configuration id for this worker (e.g. Android vs iOS). Set this when the same test case is configured for multiple configurations in your suite, otherwise a result published for one configuration can overwrite another configuration's result for the same case. |
 
 ### `PublishOptions`
 

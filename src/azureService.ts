@@ -6,6 +6,25 @@ import {
 } from "azure-devops-node-api/interfaces/TestInterfaces";
 import { AzureDevOpsOptions, PublishOptions, TestResultItem } from "./types";
 
+/** True if `point`/`result` belongs to the same test case as `item`, and the same configuration when `item.configurationId` is set. */
+function matchesTestCase(
+  point: { testCase?: { id?: string }; configuration?: { id?: string } },
+  item: TestResultItem,
+): boolean {
+  if (
+    !point.testCase?.id ||
+    parseInt(point.testCase.id, 10) !== item.testCaseId
+  ) {
+    return false;
+  }
+  if (item.configurationId == null) return true;
+
+  const pointConfigId = point.configuration?.id
+    ? parseInt(point.configuration.id, 10)
+    : undefined;
+  return pointConfigId === item.configurationId;
+}
+
 export class AzureDevOpsService {
   private testApiPromise?: Promise<ITestApi>;
   private config: AzureDevOpsOptions;
@@ -103,7 +122,10 @@ export class AzureDevOpsService {
 
     const targetCaseIds = new Set(results.map((r) => r.testCaseId));
     const matchedPoints = points.filter(
-      (p) => p.testCase?.id && targetCaseIds.has(parseInt(p.testCase.id, 10)),
+      (p) =>
+        p.testCase?.id &&
+        targetCaseIds.has(parseInt(p.testCase.id, 10)) &&
+        results.some((r) => matchesTestCase(p, r)),
     );
     this.debug("Matched test points:", matchedPoints);
 
@@ -138,16 +160,21 @@ export class AzureDevOpsService {
 
     if (reusedRunId) {
       runId = reusedRunId;
-      // Only add points that the run does not already hold a result for
+      // Only add points that the run does not already hold a result for (per case+configuration pair)
       const existingResults = await testApi.getTestResults(
         this.config.projectId,
         runId,
       );
-      const existingCaseIds = new Set(
-        existingResults.map((r) => r.testCase?.id),
+      const existingPointKeys = new Set(
+        existingResults.map(
+          (r) => `${r.testCase?.id}:${r.configuration?.id ?? ""}`,
+        ),
       );
       const missingPoints = matchedPoints.filter(
-        (p) => !existingCaseIds.has(p.testCase!.id),
+        (p) =>
+          !existingPointKeys.has(
+            `${p.testCase?.id}:${p.configuration?.id ?? ""}`,
+          ),
       );
 
       if (missingPoints.length > 0) {
@@ -195,13 +222,9 @@ export class AzureDevOpsService {
     // 4. Map outcomes and error messages
     this.debug("Run results fetched from Azure DevOps:", runResults);
     const updatedResults: TestCaseResult[] = runResults
-      .filter((result) =>
-        results.some((r) => r.testCaseId.toString() === result.testCase?.id),
-      )
+      .filter((result) => results.some((r) => matchesTestCase(result, r)))
       .map((result) => {
-        const match = results.find(
-          (r) => r.testCaseId.toString() === result.testCase?.id,
-        );
+        const match = results.find((r) => matchesTestCase(result, r));
         return {
           ...result,
           outcome: match ? match.outcome : "Inconclusive",
@@ -220,24 +243,40 @@ export class AzureDevOpsService {
     );
     this.debug("Saved test results:", savedResults);
 
-    // The real API doesn't always echo `testCase` back on the updated results,
-    // so fall back to the id->caseId mapping we already know from step 4.
-    const caseIdByResultId = new Map<number, string>();
+    // The real API doesn't always echo `testCase`/`configuration` back on the updated
+    // results, so fall back to what we already know from step 4.
+    const resultInfoById = new Map<
+      number,
+      { caseId?: string; configurationId?: string }
+    >();
     for (const result of updatedResults) {
-      if (result.id && result.testCase?.id) {
-        caseIdByResultId.set(result.id, result.testCase.id);
+      if (result.id) {
+        resultInfoById.set(result.id, {
+          caseId: result.testCase?.id,
+          configurationId: result.configuration?.id,
+        });
       }
     }
 
     // 6. Upload Attachments
     for (const savedResult of savedResults) {
       if (!savedResult.id) continue;
-      const caseId =
-        savedResult.testCase?.id ?? caseIdByResultId.get(savedResult.id);
+      const info = resultInfoById.get(savedResult.id);
+      const caseId = savedResult.testCase?.id ?? info?.caseId;
       if (!caseId) continue;
+      const configurationId =
+        savedResult.configuration?.id ?? info?.configurationId;
 
-      const matchedLocalResult = results.find(
-        (r) => r.testCaseId.toString() === caseId,
+      const matchedLocalResult = results.find((r) =>
+        matchesTestCase(
+          {
+            testCase: { id: caseId },
+            configuration: configurationId
+              ? { id: configurationId }
+              : undefined,
+          },
+          r,
+        ),
       );
 
       if (

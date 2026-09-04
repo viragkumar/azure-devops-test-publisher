@@ -30,6 +30,8 @@ export interface PublishOptions {
 export interface AzureDevOpsWdioOptions extends AzureDevOpsOptions {
   /** Attach a browser screenshot to failed results. Defaults to true. */
   screenshotOnFailure?: boolean;
+  /** Azure DevOps test configuration id (e.g. Android vs iOS) this worker's results belong to. Required when the same test case is configured for multiple configurations, otherwise results can bleed across configurations. */
+  configurationId?: number;
 }
 
 export interface TestAttachment {
@@ -45,4 +47,6 @@ export interface TestResultItem {
   errorMessage?: string;
   durationInMs?: number;
   attachments?: TestAttachment[];
+  /** Azure DevOps test configuration id; disambiguates test points/results that share a case id across configurations (e.g. Android vs iOS). */
+  configurationId?: number;
 }

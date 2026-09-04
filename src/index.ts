@@ -49,6 +49,7 @@ export class AzureDevOpsReporterService {
       errorMessage: results.error?.message,
       durationInMs: test.duration,
       attachments,
+      configurationId: this.options.configurationId,
     });
   }
 
