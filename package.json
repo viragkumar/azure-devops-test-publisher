@@ -25,7 +25,9 @@
     "reporter",
     "cucumber",
     "mocha",
-    "typescript"
+    "typescript",
+    "azure-devops-test-publisher",
+    "test-publisher"
   ],
   "engines": {
     "node": ">=18"
