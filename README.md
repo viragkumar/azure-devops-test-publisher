@@ -19,7 +19,7 @@ Publish automated test results and failure screenshots from WebdriverIO (Mocha o
 ## Installation
 
 ```bash
-npm install --save-dev @viragkumar/wdio-azure-devops-service
+npm install --save-dev @virag8/wdio-azure-devops-service
 ```
 
 Requires Node.js 18 or newer.
@@ -31,7 +31,7 @@ Register the service in `wdio.conf.js` / `wdio.conf.ts`:
 ```js
 const {
   AzureDevOpsWdioService,
-} = require("@viragkumar/wdio-azure-devops-service");
+} = require("@virag8/wdio-azure-devops-service");
 
 exports.config = {
   // ...
@@ -90,7 +90,7 @@ The pattern must contain exactly one capturing group for the numeric id.
 For custom runners that aren't WebdriverIO services, use `AzureDevOpsReporterService` directly:
 
 ```ts
-import { AzureDevOpsReporterService } from "@viragkumar/wdio-azure-devops-service";
+import { AzureDevOpsReporterService } from "@virag8/wdio-azure-devops-service";
 
 const reporter = new AzureDevOpsReporterService({
   orgUrl: process.env.AZURE_ORG_URL!,
@@ -113,7 +113,7 @@ await reporter.onComplete();
 Both the WDIO service and the reporter are built on `AzureDevOpsService`, which you can use directly for full control over run creation and result publishing:
 
 ```ts
-import { AzureDevOpsService } from "@viragkumar/wdio-azure-devops-service";
+import { AzureDevOpsService } from "@virag8/wdio-azure-devops-service";
 
 const ado = new AzureDevOpsService({
   orgUrl: process.env.AZURE_ORG_URL!,

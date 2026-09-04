@@ -1,11 +1,11 @@
 {
-  "name": "@viragkumar/wdio-azure-devops-service",
+  "name": "@virag8/wdio-azure-devops-service",
   "version": "1.0.0",
   "description": "Upload test results and screenshots to Azure DevOps Test Plans from WebdriverIO or custom TS runners",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "license": "MIT",
-  "author": "viragkumar <viragkumar58@gmail.com>",
+  "author": "virag <viragkumar58@gmail.com>",
   "homepage": "https://github.com/viragkumar/azure-devops-test-publisher#readme",
   "repository": {
     "type": "git",
@@ -18,6 +18,7 @@
     "webdriverio",
     "wdio",
     "wdio-service",
+    "ado",
     "azure-devops",
     "azure-test-plans",
     "test-results",
