@@ -20,6 +20,24 @@ interface ScreenshotCapableBrowser {
   takeScreenshot: () => Promise<string>;
 }
 
+interface CucumberPickleTag {
+  name: string;
+}
+
+/** Shape of the `world` argument WebdriverIO's Cucumber framework passes to `afterScenario`. */
+interface CucumberWorld {
+  pickle: {
+    name: string;
+    tags?: CucumberPickleTag[];
+  };
+}
+
+interface CucumberResult {
+  passed: boolean;
+  duration?: number;
+  error?: Error;
+}
+
 /**
  * WebdriverIO service that creates a single Test Run in `onPrepare`, pushes every
  * spec's results into that run, and completes it in `onComplete`.
@@ -69,6 +87,27 @@ export class AzureDevOpsWdioService {
     });
   }
 
+  /** Cucumber hook for BDD feature files; reads the case id from a `@C123` tag or the scenario name. */
+  async afterScenario(
+    world: CucumberWorld,
+    result: CucumberResult,
+  ): Promise<void> {
+    const caseId = this.extractCucumberCaseId(world);
+    if (!caseId) return;
+
+    this.results.push({
+      testCaseId: caseId,
+      outcome: result.passed ? "Passed" : "Failed",
+      errorMessage: result.error?.message,
+      durationInMs: result.duration ?? 0,
+      attachments: await this.captureScreenshot(
+        caseId,
+        { title: world.pickle.name },
+        result,
+      ),
+    });
+  }
+
   async after(): Promise<void> {
     await this.publish();
   }
@@ -113,6 +152,14 @@ export class AzureDevOpsWdioService {
       console.error("Failed to capture browser screenshot:", err);
       return [];
     }
+  }
+
+  private extractCucumberCaseId(world: CucumberWorld): number | null {
+    for (const tag of world.pickle.tags ?? []) {
+      const caseId = extractTestCaseId(tag.name);
+      if (caseId) return caseId;
+    }
+    return extractTestCaseId(world.pickle.name);
   }
 
   private resolveRunId(): number | undefined {
