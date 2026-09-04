@@ -7,13 +7,24 @@ import {
 import { AzureDevOpsOptions, PublishOptions, TestResultItem } from "./types";
 
 export class AzureDevOpsService {
-  private testApiPromise: Promise<ITestApi>;
+  private testApiPromise?: Promise<ITestApi>;
   private config: AzureDevOpsOptions;
   private currentRunId?: number;
+  /** Whether a PAT was provided; when false, every public method is a no-op. */
+  private readonly enabled: boolean;
 
   constructor(config: AzureDevOpsOptions) {
     this.config = config;
     this.currentRunId = config.runId;
+    this.enabled = Boolean(config.token);
+
+    if (!this.enabled) {
+      console.warn(
+        "Azure DevOps PAT (token) not provided; Azure DevOps test result publishing is disabled.",
+      );
+      return;
+    }
+
     const authHandler = azdev.getPersonalAccessTokenHandler(config.token);
     const connection = new azdev.WebApi(config.orgUrl, authHandler);
     this.testApiPromise = connection.getTestApi();
@@ -25,8 +36,9 @@ export class AzureDevOpsService {
   }
 
   /** Creates an empty run covering every point of the configured suite. */
-  async createRun(): Promise<number> {
-    const testApi = await this.testApiPromise;
+  async createRun(): Promise<number | undefined> {
+    if (!this.enabled) return undefined;
+    const testApi = await this.testApiPromise!;
     const points = await testApi.getPoints(
       this.config.projectName,
       this.config.planId,
@@ -71,7 +83,8 @@ export class AzureDevOpsService {
     results: TestResultItem[],
     options: PublishOptions = {},
   ): Promise<number | undefined> {
-    const testApi = await this.testApiPromise;
+    if (!this.enabled) return undefined;
+    const testApi = await this.testApiPromise!;
 
     // 1. Get test points matching the local test cases
     const points =
@@ -258,8 +271,8 @@ export class AzureDevOpsService {
 
   /** Marks a run as completed. Defaults to the run used by the last publish. */
   async completeRun(runId = this.currentRunId): Promise<void> {
-    if (!runId) return;
-    const testApi = await this.testApiPromise;
+    if (!this.enabled || !runId) return;
+    const testApi = await this.testApiPromise!;
     await testApi.updateTestRun(
       { state: "Completed" },
       this.config.projectName,

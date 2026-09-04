@@ -318,4 +318,55 @@ describe("AzureDevOpsService", () => {
 
     consoleSpy.mockRestore();
   });
+
+  describe("when no PAT is configured", () => {
+    let noTokenService: AzureDevOpsService;
+    let consoleSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      consoleSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+      jest.mocked(azdev.WebApi).mockClear();
+      noTokenService = new AzureDevOpsService({
+        orgUrl: "https://dev.azure.com/test-org",
+        token: "",
+        projectName: "TestProject",
+        planId: 100,
+        suiteId: 200,
+      });
+    });
+
+    afterEach(() => {
+      consoleSpy.mockRestore();
+    });
+
+    test("logs a warning instead of connecting to Azure DevOps", () => {
+      expect(consoleSpy).toHaveBeenCalledWith(
+        "Azure DevOps PAT (token) not provided; Azure DevOps test result publishing is disabled.",
+      );
+      expect(azdev.WebApi).not.toHaveBeenCalled();
+    });
+
+    test("createRun is a no-op", async () => {
+      const runId = await noTokenService.createRun();
+
+      expect(runId).toBeUndefined();
+      expect(mockTestApi.getPoints).not.toHaveBeenCalled();
+    });
+
+    test("publishResults is a no-op", async () => {
+      const runId = await noTokenService.publishResults([
+        { testCaseId: 1234, outcome: "Passed" },
+      ]);
+
+      expect(runId).toBeUndefined();
+      expect(mockTestApi.getPoints).not.toHaveBeenCalled();
+      expect(mockTestApi.createTestRun).not.toHaveBeenCalled();
+    });
+
+    test("completeRun is a no-op", async () => {
+      await noTokenService.completeRun(999);
+
+      expect(mockTestApi.updateTestRun).not.toHaveBeenCalled();
+    });
+  });
 });

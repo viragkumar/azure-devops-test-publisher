@@ -59,6 +59,8 @@ export class AzureDevOpsWdioService {
 
   async onPrepare(): Promise<void> {
     const runId = await this.getService().createRun();
+    if (runId === undefined) return;
+
     process.env[RUN_ID_ENV_VAR] = runId.toString();
     console.log(`Azure DevOps test run created: ${runId}`);
   }
