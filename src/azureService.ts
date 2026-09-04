@@ -74,11 +74,13 @@ export class AzureDevOpsService {
     const testApi = await this.testApiPromise;
 
     // 1. Get test points matching the local test cases
-    const points = await testApi.getPoints(
-      this.config.projectName,
-      this.config.planId,
-      this.config.suiteId,
-    );
+    const points =
+      options.points ??
+      (await testApi.getPoints(
+        this.config.projectName,
+        this.config.planId,
+        this.config.suiteId,
+      ));
     console.log("Fetched test points:", points);
 
     const targetCaseIds = new Set(results.map((r) => r.testCaseId));

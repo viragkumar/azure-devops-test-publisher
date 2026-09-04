@@ -230,6 +230,62 @@ describe("AzureDevOpsWdioService", () => {
     expect(mockTestApi.updateTestResults).not.toHaveBeenCalled();
   });
 
+  test("uses a custom caseIdPattern to extract the case id from the title", async () => {
+    process.env[RUN_ID_ENV_VAR] = "555";
+    mockTestApi.getTestResults
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([{ id: 1, testCase: { id: "1234" } }]);
+
+    const service = new AzureDevOpsWdioService({
+      ...options,
+      caseIdPattern: /TC-(\d+)/,
+    });
+
+    await service.afterTest(
+      { title: "TC-1234 login" },
+      {},
+      {
+        passed: true,
+        duration: 10,
+      },
+    );
+    await service.after();
+
+    expect(mockTestApi.updateTestResults).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 1, outcome: "Passed" }),
+      ]),
+      "TestProject",
+      555,
+    );
+  });
+
+  test("uses a custom caseIdPattern to extract the case id from a Cucumber tag", async () => {
+    process.env[RUN_ID_ENV_VAR] = "555";
+    mockTestApi.getTestResults
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([{ id: 1, testCase: { id: "1234" } }]);
+
+    const service = new AzureDevOpsWdioService({
+      ...options,
+      caseIdPattern: /TC-(\d+)/,
+    });
+
+    await service.afterScenario(
+      { pickle: { name: "Login scenario", tags: [{ name: "@TC-1234" }] } },
+      { passed: true, duration: 10 },
+    );
+    await service.after();
+
+    expect(mockTestApi.updateTestResults).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ id: 1, outcome: "Passed" }),
+      ]),
+      "TestProject",
+      555,
+    );
+  });
+
   test("afterScenario reads the case id from a Cucumber scenario tag", async () => {
     process.env[RUN_ID_ENV_VAR] = "555";
     mockTestApi.getTestResults

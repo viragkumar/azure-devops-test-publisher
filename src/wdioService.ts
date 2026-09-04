@@ -1,5 +1,9 @@
 import { AzureDevOpsService } from "./azureService";
-import { AzureDevOpsWdioOptions, TestAttachment, TestResultItem } from "./types";
+import {
+  AzureDevOpsWdioOptions,
+  TestAttachment,
+  TestResultItem,
+} from "./types";
 import { extractTestCaseId } from "./utils";
 
 /** Shares the run id created in the launcher process with the worker processes. */
@@ -75,7 +79,7 @@ export class AzureDevOpsWdioService {
     _context: unknown,
     results: WdioTestResult,
   ): Promise<void> {
-    const caseId = extractTestCaseId(test.title);
+    const caseId = extractTestCaseId(test.title, this.options.caseIdPattern);
     if (!caseId) return;
 
     this.results.push({
@@ -155,11 +159,12 @@ export class AzureDevOpsWdioService {
   }
 
   private extractCucumberCaseId(world: CucumberWorld): number | null {
+    const pattern = this.options.caseIdPattern;
     for (const tag of world.pickle.tags ?? []) {
-      const caseId = extractTestCaseId(tag.name);
+      const caseId = extractTestCaseId(tag.name, pattern);
       if (caseId) return caseId;
     }
-    return extractTestCaseId(world.pickle.name);
+    return extractTestCaseId(world.pickle.name, pattern);
   }
 
   private resolveRunId(): number | undefined {

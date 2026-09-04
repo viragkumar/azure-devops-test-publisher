@@ -1,3 +1,5 @@
+import { TestPoint } from "azure-devops-node-api/interfaces/TestInterfaces";
+
 export interface AzureDevOpsOptions {
   orgUrl: string;
   token: string;
@@ -10,11 +12,15 @@ export interface AzureDevOpsOptions {
   runId?: number;
   /** Publish every batch into a single run, created on the first publish. */
   reuseTestRun?: boolean;
+  /** Custom regex (with a capturing group for the numeric id) used instead of the default `C123`/`#123` matcher. */
+  caseIdPattern?: RegExp;
 }
 
 export interface PublishOptions {
   /** Publish into this existing run instead of creating a new one. */
   runId?: number;
+  /** Reuse already-fetched test points instead of calling `getPoints` again. */
+  points?: TestPoint[];
   /** Leave the run in progress so more results can be added later. */
   keepRunOpen?: boolean;
 }

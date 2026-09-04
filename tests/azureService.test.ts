@@ -252,7 +252,8 @@ describe("AzureDevOpsService", () => {
     mockTestApi.getTestResults.mockResolvedValue([
       { id: 1, testCase: { id: "1001" } },
       { id: 2, testCase: { id: "1002" } },
-    ]);    mockTestApi.updateTestResults.mockResolvedValue([
+    ]);
+    mockTestApi.updateTestResults.mockResolvedValue([
       { id: 2, testCase: { id: "1002" } },
     ]);
 
@@ -271,6 +272,32 @@ describe("AzureDevOpsService", () => {
     await service.completeRun();
 
     expect(mockTestApi.updateTestRun).not.toHaveBeenCalled();
+  });
+
+  test("reuses pre-fetched points instead of calling getPoints again", async () => {
+    mockTestApi.createTestRun.mockResolvedValue({ id: 999 });
+    mockTestApi.getTestResults.mockResolvedValue([
+      { id: 1, testCase: { id: "1001" } },
+    ]);
+    mockTestApi.updateTestResults.mockResolvedValue([
+      { id: 1, testCase: { id: "1001" } },
+    ]);
+
+    const runId = await service.publishResults(
+      [{ testCaseId: 1001, outcome: "Passed" }],
+      {
+        points: [
+          { id: 10, testCase: { id: "1001" }, configuration: { id: "1" } },
+        ] as any,
+      },
+    );
+
+    expect(runId).toBe(999);
+    expect(mockTestApi.getPoints).not.toHaveBeenCalled();
+    expect(mockTestApi.createTestRun).toHaveBeenCalledWith(
+      expect.objectContaining({ pointIds: [10], configurationIds: [1] }),
+      "TestProject",
+    );
   });
 
   test("should skip creating test run if no test points match", async () => {

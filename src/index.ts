@@ -58,7 +58,7 @@ export class AzureDevOpsReporterService {
   }
 
   private extractTestCaseId(title: string): number | null {
-    const caseId = extractTestCaseId(title);
+    const caseId = extractTestCaseId(title, this.options.caseIdPattern);
     console.log("Extracted test case ID:", caseId);
     return caseId;
   }
