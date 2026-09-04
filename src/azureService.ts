@@ -45,7 +45,7 @@ export class AzureDevOpsService {
     if (!this.enabled) return undefined;
     const testApi = await this.testApiPromise!;
     const points = await testApi.getPoints(
-      this.config.projectName,
+      this.config.projectId,
       this.config.planId,
       this.config.suiteId,
     );
@@ -73,7 +73,7 @@ export class AzureDevOpsService {
         pointIds,
         configurationIds,
       },
-      this.config.projectName,
+      this.config.projectId,
     );
 
     if (!testRun.id) {
@@ -95,7 +95,7 @@ export class AzureDevOpsService {
     const points =
       options.points ??
       (await testApi.getPoints(
-        this.config.projectName,
+        this.config.projectId,
         this.config.planId,
         this.config.suiteId,
       ));
@@ -140,7 +140,7 @@ export class AzureDevOpsService {
       runId = reusedRunId;
       // Only add points that the run does not already hold a result for
       const existingResults = await testApi.getTestResults(
-        this.config.projectName,
+        this.config.projectId,
         runId,
       );
       const existingCaseIds = new Set(
@@ -159,7 +159,7 @@ export class AzureDevOpsService {
               ? { id: p.configuration.id }
               : undefined,
           })),
-          this.config.projectName,
+          this.config.projectId,
           runId,
         );
       }
@@ -175,7 +175,7 @@ export class AzureDevOpsService {
           pointIds: pointIds,
           configurationIds: configurationIds,
         },
-        this.config.projectName,
+        this.config.projectId,
       );
 
       if (!testRun.id) {
@@ -188,7 +188,7 @@ export class AzureDevOpsService {
 
     // 3. Fetch automatically created results for the run
     const runResults = await testApi.getTestResults(
-      this.config.projectName,
+      this.config.projectId,
       runId,
     );
 
@@ -215,7 +215,7 @@ export class AzureDevOpsService {
     this.debug("Updating test results in Azure DevOps:", updatedResults);
     const savedResults = await testApi.updateTestResults(
       updatedResults,
-      this.config.projectName,
+      this.config.projectId,
       runId,
     );
     this.debug("Saved test results:", savedResults);
@@ -263,7 +263,7 @@ export class AzureDevOpsService {
 
           const savedAttachment = await testApi.createTestResultAttachment(
             attachmentModel,
-            this.config.projectName,
+            this.config.projectId,
             runId,
             savedResult.id,
           );
@@ -290,7 +290,7 @@ export class AzureDevOpsService {
     const testApi = await this.testApiPromise!;
     await testApi.updateTestRun(
       { state: "Completed" },
-      this.config.projectName,
+      this.config.projectId,
       runId,
     );
     if (runId === this.currentRunId) {

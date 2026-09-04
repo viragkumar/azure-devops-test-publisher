@@ -4,7 +4,7 @@ export interface AzureDevOpsOptions {
   orgUrl: string;
   token: string;
   /** Project display name or its GUID; Azure DevOps accepts either. */
-  projectName: string;
+  projectId: string;
   planId: number;
   suiteId: number;
   runName?: string;
