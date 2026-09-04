@@ -1,13 +1,17 @@
 import { AzureDevOpsService } from "./azureService";
-import { AzureDevOpsOptions, TestAttachment, TestResultItem } from "./types";
+import {
+  AzureDevOpsWdioOptions,
+  TestAttachment,
+  TestResultItem,
+} from "./types";
 import { extractTestCaseId } from "./utils";
 
 export class AzureDevOpsReporterService {
-  private options: AzureDevOpsOptions;
+  private options: AzureDevOpsWdioOptions;
   private results: TestResultItem[] = [];
   private ado?: AzureDevOpsService;
 
-  constructor(options: AzureDevOpsOptions) {
+  constructor(options: AzureDevOpsWdioOptions) {
     this.options = options;
   }
 
@@ -22,7 +26,11 @@ export class AzureDevOpsReporterService {
 
     const attachments: TestAttachment[] = [];
 
-    if (!results.passed && browserInstance) {
+    if (
+      !results.passed &&
+      browserInstance &&
+      this.options.screenshotOnFailure !== false
+    ) {
       try {
         const base64Png = await browserInstance.takeScreenshot();
         attachments.push({
@@ -58,9 +66,7 @@ export class AzureDevOpsReporterService {
   }
 
   private extractTestCaseId(title: string): number | null {
-    const caseId = extractTestCaseId(title, this.options.caseIdPattern);
-    console.log("Extracted test case ID:", caseId);
-    return caseId;
+    return extractTestCaseId(title, this.options.caseIdPattern);
   }
 }
 

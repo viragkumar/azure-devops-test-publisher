@@ -6,11 +6,12 @@ export function extractTestCaseId(
   title: string,
   pattern?: RegExp,
 ): number | null {
-  if (pattern) {
-    const match = title.match(pattern);
-    return match ? parseInt(match[1], 10) : null;
-  }
+  const match = pattern
+    ? title.match(pattern)
+    : title.match(/C(\d+)/i) || title.match(/#(\d+)/);
 
-  const match = title.match(/C(\d+)/i) || title.match(/#(\d+)/);
-  return match ? parseInt(match[1], 10) : null;
+  if (!match?.[1]) return null;
+
+  const caseId = parseInt(match[1], 10);
+  return Number.isNaN(caseId) ? null : caseId;
 }

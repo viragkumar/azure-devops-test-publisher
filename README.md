@@ -13,22 +13,16 @@ Publish automated test results and failure screenshots from WebdriverIO (Mocha o
 - **Point pre-fetch** — pass already-fetched test points via `PublishOptions.points` to skip a redundant Azure DevOps API call.
 - **Resilient publishing** — publish failures are caught and logged so a flaky Azure DevOps API never fails the test run itself.
 - **Standalone reporter service** — `AzureDevOpsReporterService` for custom/non-service integrations that just need `afterTest` + `onComplete` hooks.
+- **Quiet by default** — set `debug: true` to log raw Azure DevOps API payloads while troubleshooting.
 - **Fully typed** — ships with TypeScript declarations for all public options and result types.
 
 ## Installation
 
-This package isn't published to a public registry. Build it and reference it locally, or publish it to your organization's private registry.
-
 ```bash
-npm run build   # compiles to dist/ with type declarations
+npm install --save-dev @viragkumar/wdio-azure-devops-service
 ```
 
-```json
-// consumer package.json
-"dependencies": {
-  "@your-scope/wdio-azure-devops-service": "file:../azure-devops-test-publisher"
-}
-```
+Requires Node.js 18 or newer.
 
 ## Usage with WebdriverIO
 
@@ -37,7 +31,7 @@ Register the service in `wdio.conf.js` / `wdio.conf.ts`:
 ```js
 const {
   AzureDevOpsWdioService,
-} = require("@your-scope/wdio-azure-devops-service");
+} = require("@viragkumar/wdio-azure-devops-service");
 
 exports.config = {
   // ...
@@ -96,7 +90,7 @@ The pattern must contain exactly one capturing group for the numeric id.
 For custom runners that aren't WebdriverIO services, use `AzureDevOpsReporterService` directly:
 
 ```ts
-import { AzureDevOpsReporterService } from "@your-scope/wdio-azure-devops-service";
+import { AzureDevOpsReporterService } from "@viragkumar/wdio-azure-devops-service";
 
 const reporter = new AzureDevOpsReporterService({
   orgUrl: process.env.AZURE_ORG_URL!,
@@ -119,7 +113,7 @@ await reporter.onComplete();
 Both the WDIO service and the reporter are built on `AzureDevOpsService`, which you can use directly for full control over run creation and result publishing:
 
 ```ts
-import { AzureDevOpsService } from "@your-scope/wdio-azure-devops-service";
+import { AzureDevOpsService } from "@viragkumar/wdio-azure-devops-service";
 
 const ado = new AzureDevOpsService({
   orgUrl: process.env.AZURE_ORG_URL!,
@@ -142,18 +136,18 @@ await ado.publishResults([
 
 ### `AzureDevOpsOptions`
 
-| Option          | Type                      | Description                                                         |
-| --------------- | ------------------------- | ------------------------------------------------------------------- |
-| `orgUrl`        | `string`                  | Azure DevOps organization URL.                                      |
-| `token`         | `string`                  | Personal access token with Test Plan read/write permissions.        |
-| `projectName`   | `string`                  | Azure DevOps project name.                                          |
-| `planId`        | `number`                  | Test plan id.                                                       |
-| `suiteId`       | `number`                  | Test suite id within the plan.                                      |
-| `runName`       | `string?`                 | Custom name for created runs.                                       |
-| `runId`         | `number?`                 | Reuse this existing run instead of creating a new one.              |
-| `reuseTestRun`  | `boolean?`                | Keep a single run open across multiple `publishResults` calls.      |
-| `caseIdPattern` | `RegExp?`                 | Custom regex (one capturing group) for extracting the test case id. |
-| `caseIdMapping` | `Record<string, number>?` | Optional explicit title-to-case-id mapping.                         |
+| Option          | Type       | Description                                                         |
+| --------------- | ---------- | ------------------------------------------------------------------- |
+| `orgUrl`        | `string`   | Azure DevOps organization URL.                                      |
+| `token`         | `string`   | Personal access token with Test Plan read/write permissions.        |
+| `projectName`   | `string`   | Azure DevOps project name.                                          |
+| `planId`        | `number`   | Test plan id.                                                       |
+| `suiteId`       | `number`   | Test suite id within the plan.                                      |
+| `runName`       | `string?`  | Custom name for created runs.                                       |
+| `runId`         | `number?`  | Reuse this existing run instead of creating a new one.              |
+| `reuseTestRun`  | `boolean?` | Keep a single run open across multiple `publishResults` calls.      |
+| `caseIdPattern` | `RegExp?`  | Custom regex (one capturing group) for extracting the test case id. |
+| `debug`         | `boolean?` | Log raw Azure DevOps API payloads. Defaults to `false`.             |
 
 ### `AzureDevOpsWdioOptions` (extends `AzureDevOpsOptions`)
 
@@ -176,3 +170,7 @@ npm run test:unit   # mocked unit tests
 npm run test:real   # integration tests against a real Azure DevOps org (requires env vars)
 npm run build        # compile to dist/
 ```
+
+## License
+
+MIT

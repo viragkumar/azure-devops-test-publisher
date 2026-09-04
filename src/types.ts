@@ -7,13 +7,14 @@ export interface AzureDevOpsOptions {
   planId: number;
   suiteId: number;
   runName?: string;
-  caseIdMapping?: Record<string, number>;
   /** Reuse this already existing test run instead of creating a new one. */
   runId?: number;
   /** Publish every batch into a single run, created on the first publish. */
   reuseTestRun?: boolean;
   /** Custom regex (with a capturing group for the numeric id) used instead of the default `C123`/`#123` matcher. */
   caseIdPattern?: RegExp;
+  /** Log Azure DevOps API payloads to the console. Off by default. */
+  debug?: boolean;
 }
 
 export interface PublishOptions {

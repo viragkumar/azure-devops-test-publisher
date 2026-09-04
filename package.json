@@ -1,15 +1,48 @@
 {
-  "name": "@your-scope/wdio-azure-devops-service",
+  "name": "@viragkumar/wdio-azure-devops-service",
   "version": "1.0.0",
   "description": "Upload test results and screenshots to Azure DevOps Test Plans from WebdriverIO or custom TS runners",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "license": "MIT",
+  "author": "viragkumar <viragkumar58@gmail.com>",
+  "homepage": "https://github.com/viragkumar/azure-devops-test-publisher#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/viragkumar/azure-devops-test-publisher.git"
+  },
+  "bugs": {
+    "url": "https://github.com/viragkumar/azure-devops-test-publisher/issues"
+  },
+  "keywords": [
+    "webdriverio",
+    "wdio",
+    "wdio-service",
+    "azure-devops",
+    "azure-test-plans",
+    "test-results",
+    "reporter",
+    "cucumber",
+    "mocha",
+    "typescript"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "rimraf dist && tsc",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "npm run test:unit && npm run build",
     "test:unit": "jest --config tests/jest.config.js",
     "test:real": "jest --config tests/jest.real.config.js",
-    "test": "npm run test:unit && npm run test:real"
+    "test": "npm run test:unit"
   },
   "dependencies": {
     "azure-devops-node-api": "^12.0.0"

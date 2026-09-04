@@ -35,6 +35,11 @@ export class AzureDevOpsService {
     return this.currentRunId;
   }
 
+  private debug(message: string, payload?: unknown): void {
+    if (!this.config.debug) return;
+    console.log(message, payload);
+  }
+
   /** Creates an empty run covering every point of the configured suite. */
   async createRun(): Promise<number | undefined> {
     if (!this.enabled) return undefined;
@@ -94,13 +99,13 @@ export class AzureDevOpsService {
         this.config.planId,
         this.config.suiteId,
       ));
-    console.log("Fetched test points:", points);
+    this.debug("Fetched test points:", points);
 
     const targetCaseIds = new Set(results.map((r) => r.testCaseId));
     const matchedPoints = points.filter(
       (p) => p.testCase?.id && targetCaseIds.has(parseInt(p.testCase.id, 10)),
     );
-    console.log("Matched test points:", matchedPoints);
+    this.debug("Matched test points:", matchedPoints);
 
     if (matchedPoints.length === 0) {
       console.warn(
@@ -110,7 +115,7 @@ export class AzureDevOpsService {
     }
 
     const pointIds = matchedPoints.map((p) => p.id!);
-    console.log("Point IDs for the test run:", pointIds);
+    this.debug("Point IDs for the test run:", pointIds);
 
     // Extract unique configuration IDs from matched points (or fallback to empty array/default)
     const configurationIds = Array.from(
@@ -122,7 +127,7 @@ export class AzureDevOpsService {
           .filter((id): id is number => id !== null),
       ),
     );
-    console.log("Configuration IDs for the test run:", configurationIds);
+    this.debug("Configuration IDs for the test run:", configurationIds);
 
     // 2. Reuse the existing Test Run when asked, otherwise create a new one
     const reusedRunId =
@@ -168,7 +173,7 @@ export class AzureDevOpsService {
           automated: true,
           plan: { id: this.config.planId.toString() },
           pointIds: pointIds,
-          configurationIds: configurationIds, // Fixes TS2345
+          configurationIds: configurationIds,
         },
         this.config.projectName,
       );
@@ -188,7 +193,7 @@ export class AzureDevOpsService {
     );
 
     // 4. Map outcomes and error messages
-    console.log("Run results fetched from Azure DevOps:", runResults);
+    this.debug("Run results fetched from Azure DevOps:", runResults);
     const updatedResults: TestCaseResult[] = runResults
       .filter((result) =>
         results.some((r) => r.testCaseId.toString() === result.testCase?.id),
@@ -196,10 +201,6 @@ export class AzureDevOpsService {
       .map((result) => {
         const match = results.find(
           (r) => r.testCaseId.toString() === result.testCase?.id,
-        );
-        console.log(
-          "Mapping local results to run results. Match found:",
-          match,
         );
         return {
           ...result,
