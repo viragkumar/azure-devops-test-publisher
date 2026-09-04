@@ -1,3 +1,6 @@
+import type { Frameworks, Services } from "@wdio/types" with {
+  "resolution-mode": "import",
+};
 import { AzureDevOpsService } from "./azureService";
 import {
   AzureDevOpsWdioOptions,
@@ -8,17 +11,6 @@ import { extractTestCaseId } from "./utils";
 
 /** Shares the run id created in the launcher process with the worker processes. */
 export const RUN_ID_ENV_VAR = "AZURE_DEVOPS_TEST_RUN_ID";
-
-interface WdioTest {
-  title: string;
-  fullTitle?: string;
-}
-
-interface WdioTestResult {
-  passed: boolean;
-  duration?: number;
-  error?: Error;
-}
 
 interface ScreenshotCapableBrowser {
   takeScreenshot: () => Promise<string>;
@@ -36,24 +28,17 @@ interface CucumberWorld {
   };
 }
 
-interface CucumberResult {
-  passed: boolean;
-  duration?: number;
-  error?: Error;
-}
-
 /**
  * WebdriverIO service that creates a single Test Run in `onPrepare`, pushes every
  * spec's results into that run, and completes it in `onComplete`.
  */
-export class AzureDevOpsWdioService {
-  private options: AzureDevOpsWdioOptions;
+export default class AzureDevOpsWdioService
+  implements Services.ServiceInstance
+{
   private results: TestResultItem[] = [];
   private service?: AzureDevOpsService;
 
-  constructor(options: AzureDevOpsWdioOptions) {
-    this.options = options;
-  }
+  constructor(private readonly _options: AzureDevOpsWdioOptions) {}
 
   // --- launcher process hooks ---
 
@@ -77,19 +62,19 @@ export class AzureDevOpsWdioService {
   // --- worker process hooks ---
 
   private debug(message: string, payload?: unknown): void {
-    if (!this.options.debug) return;
+    if (!this._options.debug) return;
     console.log(message, payload);
   }
 
   async afterTest(
-    test: WdioTest,
+    test: Frameworks.Test,
     _context: unknown,
-    results: WdioTestResult,
+    results: Frameworks.TestResult,
   ): Promise<void> {
-    const caseId = extractTestCaseId(test.title, this.options.caseIdPattern);
+    const caseId = extractTestCaseId(test.title, this._options.caseIdPattern);
     this.debug("Extracted case id from test title:", {
       title: test.title,
-      pattern: String(this.options.caseIdPattern ?? "default C123/#123"),
+      pattern: String(this._options.caseIdPattern ?? "default C123/#123"),
       caseId,
     });
     if (!caseId) return;
@@ -106,7 +91,7 @@ export class AzureDevOpsWdioService {
   /** Cucumber hook for BDD feature files; reads the case id from a `@C123` tag or the scenario name. */
   async afterScenario(
     world: CucumberWorld,
-    result: CucumberResult,
+    result: Frameworks.PickleResult,
   ): Promise<void> {
     const caseId = this.extractCucumberCaseId(world);
     if (!caseId) return;
@@ -114,7 +99,7 @@ export class AzureDevOpsWdioService {
     this.results.push({
       testCaseId: caseId,
       outcome: result.passed ? "Passed" : "Failed",
-      errorMessage: result.error?.message,
+      errorMessage: this.stringifyError(result.error),
       durationInMs: result.duration ?? 0,
       attachments: await this.captureScreenshot(
         caseId,
@@ -122,6 +107,12 @@ export class AzureDevOpsWdioService {
         result,
       ),
     });
+  }
+
+  /** Cucumber's `error` is typed as a string, but some frameworks still pass a raw `Error`. */
+  private stringifyError(error: unknown): string | undefined {
+    if (!error) return undefined;
+    return error instanceof Error ? error.message : String(error);
   }
 
   async after(): Promise<void> {
@@ -147,10 +138,11 @@ export class AzureDevOpsWdioService {
 
   private async captureScreenshot(
     caseId: number,
-    test: WdioTest,
-    results: WdioTestResult,
+    test: Frameworks.Test | { title: string; fullTitle?: string },
+    results: Frameworks.TestResult | Frameworks.PickleResult,
   ): Promise<TestAttachment[]> {
-    if (results.passed || this.options.screenshotOnFailure === false) return [];
+    if (results.passed || this._options.screenshotOnFailure === false)
+      return [];
 
     const browser = (globalThis as { browser?: ScreenshotCapableBrowser })
       .browser;
@@ -171,7 +163,7 @@ export class AzureDevOpsWdioService {
   }
 
   private extractCucumberCaseId(world: CucumberWorld): number | null {
-    const pattern = this.options.caseIdPattern;
+    const pattern = this._options.caseIdPattern;
     const tags = world.pickle.tags ?? [];
     this.debug("Scanning scenario tags for case id:", {
       scenario: world.pickle.name,
@@ -198,15 +190,13 @@ export class AzureDevOpsWdioService {
   private resolveRunId(): number | undefined {
     const fromEnv = process.env[RUN_ID_ENV_VAR];
     const parsed = fromEnv ? parseInt(fromEnv, 10) : NaN;
-    return Number.isNaN(parsed) ? this.options.runId : parsed;
+    return Number.isNaN(parsed) ? this._options.runId : parsed;
   }
 
   private getService(): AzureDevOpsService {
-    this.service ??= new AzureDevOpsService(this.options);
+    this.service ??= new AzureDevOpsService(this._options);
     return this.service;
   }
 }
 
-/** WebdriverIO looks for a `launcher` export to run `onPrepare`/`onComplete`. */
-export const launcher = AzureDevOpsWdioService;
-export default AzureDevOpsWdioService;
+export { AzureDevOpsWdioService };
