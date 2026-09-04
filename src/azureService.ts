@@ -204,12 +204,24 @@ export class AzureDevOpsService {
       runId,
     );
 
+    // The real API doesn't always echo `testCase` back on the updated results,
+    // so fall back to the id->caseId mapping we already know from step 4.
+    const caseIdByResultId = new Map<number, string>();
+    for (const result of updatedResults) {
+      if (result.id && result.testCase?.id) {
+        caseIdByResultId.set(result.id, result.testCase.id);
+      }
+    }
+
     // 6. Upload Attachments
     for (const savedResult of savedResults) {
-      if (!savedResult.id || !savedResult.testCase?.id) continue;
+      if (!savedResult.id) continue;
+      const caseId =
+        savedResult.testCase?.id ?? caseIdByResultId.get(savedResult.id);
+      if (!caseId) continue;
 
       const matchedLocalResult = results.find(
-        (r) => r.testCaseId.toString() === savedResult.testCase?.id,
+        (r) => r.testCaseId.toString() === caseId,
       );
 
       if (

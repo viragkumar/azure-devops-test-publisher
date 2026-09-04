@@ -39,6 +39,21 @@ const hasRealCredentials =
 
 const describeIfConfigured = hasRealCredentials ? describe : describe.skip;
 
+/** Azure DevOps attachment indexing can lag briefly behind the upload; retry the read. */
+async function pollUntil<T>(
+  fetch: () => Promise<T>,
+  isReady: (value: T) => boolean,
+  attempts = 5,
+  delayMs = 1000,
+): Promise<T> {
+  let result = await fetch();
+  for (let i = 1; i < attempts && !isReady(result); i++) {
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    result = await fetch();
+  }
+  return result;
+}
+
 describeIfConfigured("AzureDevOpsReporterService (real Azure DevOps)", () => {
   jest.setTimeout(30000);
 
@@ -216,10 +231,10 @@ describeIfConfigured("AzureDevOpsReporterService (real Azure DevOps)", () => {
     expect(result).toBeDefined();
     expect(result?.outcome).toBe("Failed");
 
-    const attachments = await testApi.getTestResultAttachments(
-      AZURE_PROJECT!,
-      runId!,
-      result!.id!,
+    const attachments = await pollUntil(
+      () =>
+        testApi.getTestResultAttachments(AZURE_PROJECT!, runId!, result!.id!),
+      (fetched) => fetched.some((a) => a.fileName === `failure-C${caseId}.png`),
     );
     expect(
       attachments.some((a) => a.fileName === `failure-C${caseId}.png`),
