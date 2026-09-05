@@ -145,7 +145,7 @@ export class AzureDevOpsService {
         this.config.planId,
         this.config.suiteId,
       ));
-    this.debug("Fetched test points:", points);
+    this.debug("Fetched test points:", points.length);
 
     const inTargetConfiguration = (item: {
       configuration?: { id?: string };
@@ -167,6 +167,7 @@ export class AzureDevOpsService {
     if (matchedPoints.length === 0) {
       console.warn(
         "No matching test points found in Azure DevOps for the given test cases.",
+        points,
       );
       return;
     }
