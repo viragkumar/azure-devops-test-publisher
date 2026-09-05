@@ -1,7 +1,7 @@
 import type { Frameworks, Services } from "@wdio/types" with {
   "resolution-mode": "import",
 };
-import { AzureDevOpsService } from "./azureService";
+import { AzureDevOpsService, assertRequiredOptions } from "./azureService";
 import {
   AzureDevOpsWdioOptions,
   TestAttachment,
@@ -38,7 +38,9 @@ export default class AzureDevOpsWdioService
   private results: TestResultItem[] = [];
   private service?: AzureDevOpsService;
 
-  constructor(private readonly _options: AzureDevOpsWdioOptions) {}
+  constructor(private readonly _options: AzureDevOpsWdioOptions) {
+    assertRequiredOptions(_options);
+  }
 
   // --- launcher process hooks ---
 

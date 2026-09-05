@@ -26,6 +26,28 @@ function matchesTestCase(
   return pointConfigId === item.configurationId;
 }
 
+/** Thrown when mandatory Azure DevOps options are missing or malformed. */
+export class AzureDevOpsConfigError extends Error {
+  constructor(public readonly missing: string[]) {
+    super(
+      `Missing or invalid Azure DevOps option(s): ${missing.join(", ")}. ` +
+        "Provide them when constructing the service or in the wdio service options.",
+    );
+    this.name = "AzureDevOpsConfigError";
+  }
+}
+
+export function assertRequiredOptions(config: AzureDevOpsOptions): void {
+  const missing: string[] = [];
+
+  if (!config?.orgUrl?.trim()) missing.push("orgUrl");
+  if (!config?.projectId?.toString().trim()) missing.push("projectId");
+  if (!Number.isInteger(config?.planId)) missing.push("planId");
+  if (!Number.isInteger(config?.suiteId)) missing.push("suiteId");
+
+  if (missing.length > 0) throw new AzureDevOpsConfigError(missing);
+}
+
 export class AzureDevOpsService {
   private testApiPromise?: Promise<ITestApi>;
   private connection?: azdev.WebApi;
@@ -36,6 +58,7 @@ export class AzureDevOpsService {
   private readonly enabled: boolean;
 
   constructor(config: AzureDevOpsOptions) {
+    assertRequiredOptions(config);
     this.config = config;
     this.currentRunId = config.runId;
     this.enabled = Boolean(config.token);

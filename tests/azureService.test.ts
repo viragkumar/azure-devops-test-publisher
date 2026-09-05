@@ -1,4 +1,7 @@
-import { AzureDevOpsService } from "../src/azureService";
+import {
+  AzureDevOpsService,
+  AzureDevOpsConfigError,
+} from "../src/azureService";
 import * as azdev from "azure-devops-node-api";
 
 jest.mock("azure-devops-node-api");
@@ -408,6 +411,61 @@ describe("AzureDevOpsService", () => {
       await noTokenService.completeRun(999);
 
       expect(mockTestApi.updateTestRun).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("when mandatory options are missing", () => {
+    const validOptions = {
+      orgUrl: "https://dev.azure.com/test-org",
+      token: "fake-token",
+      projectId: "TestProject",
+      planId: 100,
+      suiteId: 200,
+    };
+
+    test.each([
+      ["orgUrl", { orgUrl: "" }],
+      ["orgUrl", { orgUrl: "   " }],
+      ["projectId", { projectId: "" }],
+      ["planId", { planId: undefined }],
+      ["planId", { planId: Number("not-a-number") }],
+      ["suiteId", { suiteId: undefined }],
+    ])("throws when %s is missing or invalid", (missingKey, override) => {
+      jest.mocked(azdev.WebApi).mockClear();
+
+      expect(
+        () => new AzureDevOpsService({ ...validOptions, ...(override as any) }),
+      ).toThrow(AzureDevOpsConfigError);
+      expect(
+        () => new AzureDevOpsService({ ...validOptions, ...(override as any) }),
+      ).toThrow(new RegExp(missingKey));
+      expect(azdev.WebApi).not.toHaveBeenCalled();
+    });
+
+    test("reports every missing option at once", () => {
+      let error: AzureDevOpsConfigError | undefined;
+      try {
+        new AzureDevOpsService({} as any);
+      } catch (err) {
+        error = err as AzureDevOpsConfigError;
+      }
+
+      expect(error).toBeInstanceOf(AzureDevOpsConfigError);
+      expect(error!.name).toBe("AzureDevOpsConfigError");
+      expect(error!.missing).toEqual([
+        "orgUrl",
+        "projectId",
+        "planId",
+        "suiteId",
+      ]);
+    });
+
+    test("a missing token alone does not throw", () => {
+      jest.spyOn(console, "warn").mockImplementation(() => {});
+
+      expect(
+        () => new AzureDevOpsService({ ...validOptions, token: "" }),
+      ).not.toThrow();
     });
   });
 });

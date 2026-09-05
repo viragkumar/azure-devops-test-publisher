@@ -1,4 +1,4 @@
-import { AzureDevOpsService } from "./azureService";
+import { AzureDevOpsService, assertRequiredOptions } from "./azureService";
 import {
   AzureDevOpsWdioOptions,
   TestAttachment,
@@ -12,6 +12,7 @@ export class AzureDevOpsReporterService {
   private ado?: AzureDevOpsService;
 
   constructor(options: AzureDevOpsWdioOptions) {
+    assertRequiredOptions(options);
     this.options = options;
   }
 
