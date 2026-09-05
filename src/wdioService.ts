@@ -45,6 +45,13 @@ export default class AzureDevOpsWdioService
   // --- launcher process hooks ---
 
   async onPrepare(): Promise<void> {
+    const existingRunId = this.resolveRunId();
+    if (existingRunId) {
+      process.env[RUN_ID_ENV_VAR] = existingRunId.toString();
+      console.log(`Reusing Azure DevOps test run: ${existingRunId}`);
+      return;
+    }
+
     const runId = await this.getService().createRun();
     if (runId === undefined) return;
 
@@ -192,10 +199,12 @@ export default class AzureDevOpsWdioService
     return fromName;
   }
 
+  /** `0` is treated as "not set", so a fresh run gets created. */
   private resolveRunId(): number | undefined {
     const fromEnv = process.env[RUN_ID_ENV_VAR];
     const parsed = fromEnv ? parseInt(fromEnv, 10) : NaN;
-    return Number.isNaN(parsed) ? this._options.runId : parsed;
+    const runId = Number.isNaN(parsed) ? this._options.runId : parsed;
+    return runId || undefined;
   }
 
   private getService(): AzureDevOpsService {

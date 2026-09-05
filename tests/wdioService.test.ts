@@ -68,6 +68,34 @@ describe("AzureDevOpsWdioService", () => {
       expect(process.env[RUN_ID_ENV_VAR]).toBe("999");
     });
 
+    test("onPrepare reuses the run id from the options instead of creating one", async () => {
+      const service = new AzureDevOpsWdioService({ ...options, runId: 555 });
+
+      await service.onPrepare();
+
+      expect(mockTestApi.createTestRun).not.toHaveBeenCalled();
+      expect(process.env[RUN_ID_ENV_VAR]).toBe("555");
+    });
+
+    test("onPrepare reuses the run id already present in the env var", async () => {
+      process.env[RUN_ID_ENV_VAR] = "777";
+      const service = new AzureDevOpsWdioService(options);
+
+      await service.onPrepare();
+
+      expect(mockTestApi.createTestRun).not.toHaveBeenCalled();
+      expect(process.env[RUN_ID_ENV_VAR]).toBe("777");
+    });
+
+    test("onPrepare treats a run id of 0 as not set", async () => {
+      const service = new AzureDevOpsWdioService({ ...options, runId: 0 });
+
+      await service.onPrepare();
+
+      expect(mockTestApi.createTestRun).toHaveBeenCalledTimes(1);
+      expect(process.env[RUN_ID_ENV_VAR]).toBe("999");
+    });
+
     test("onComplete completes the shared run and clears the env var", async () => {
       process.env[RUN_ID_ENV_VAR] = "999";
       const service = new AzureDevOpsWdioService(options);
