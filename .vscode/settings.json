@@ -1,4 +1,15 @@
 {
-  "jest.jestCommandLine": "node_modules/.bin/jest --config tests/jest.config.js",
-  "jest.rootPath": "."
+  "jest.virtualFolders": [
+    {
+      "name": "unit",
+      "rootPath": ".",
+      "jestCommandLine": "npx --no-install jest --config tests/jest.config.js"
+    },
+    {
+      "name": "real",
+      "rootPath": ".",
+      "jestCommandLine": "npx --no-install jest --config tests/jest.real.config.js",
+      "runMode": "on-demand"
+    }
+  ]
 }
