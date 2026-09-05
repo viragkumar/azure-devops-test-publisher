@@ -23,6 +23,8 @@ export interface PublishOptions {
   runId?: number;
   /** Reuse already-fetched test points instead of calling `getPoints` again. */
   points?: TestPoint[];
+  /** Only publish to the test point/result of this Azure DevOps configuration id; others are left untouched. */
+  configurationId?: number;
   /** Leave the run in progress so more results can be added later. */
   keepRunOpen?: boolean;
 }

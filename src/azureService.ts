@@ -120,11 +120,19 @@ export class AzureDevOpsService {
       ));
     this.debug("Fetched test points:", points);
 
+    const inTargetConfiguration = (item: {
+      configuration?: { id?: string };
+    }): boolean =>
+      options.configurationId == null ||
+      (item.configuration?.id != null &&
+        parseInt(item.configuration.id, 10) === options.configurationId);
+
     const targetCaseIds = new Set(results.map((r) => r.testCaseId));
     const matchedPoints = points.filter(
       (p) =>
         p.testCase?.id &&
         targetCaseIds.has(parseInt(p.testCase.id, 10)) &&
+        inTargetConfiguration(p) &&
         results.some((r) => matchesTestCase(p, r)),
     );
     this.debug("Matched test points:", matchedPoints);
@@ -222,7 +230,11 @@ export class AzureDevOpsService {
     // 4. Map outcomes and error messages
     this.debug("Run results fetched from Azure DevOps:", runResults);
     const updatedResults: TestCaseResult[] = runResults
-      .filter((result) => results.some((r) => matchesTestCase(result, r)))
+      .filter(
+        (result) =>
+          inTargetConfiguration(result) &&
+          results.some((r) => matchesTestCase(result, r)),
+      )
       .map((result) => {
         const match = results.find((r) => matchesTestCase(result, r));
         return {

@@ -132,6 +132,7 @@ export default class AzureDevOpsWdioService
       await this.getService().publishResults(pending, {
         runId: this.resolveRunId(),
         keepRunOpen: true,
+        configurationId: this._options.configurationId,
       });
     } catch (err) {
       console.error("Failed to publish results to Azure DevOps:", err);
