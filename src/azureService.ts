@@ -59,28 +59,10 @@ export class AzureDevOpsService {
     console.log(message, payload);
   }
 
-  /** Creates an empty run covering every point of the configured suite. */
+  /** Creates an empty run; points are added by `publishResults` as tests finish, so unexecuted cases are never marked in progress. */
   async createRun(): Promise<number | undefined> {
     if (!this.enabled) return undefined;
     const testApi = await this.testApiPromise!;
-    const points = await testApi.getPoints(
-      this.config.projectId,
-      this.config.planId,
-      this.config.suiteId,
-    );
-
-    const pointIds = points
-      .map((p) => p.id)
-      .filter((id): id is number => typeof id === "number");
-    const configurationIds = Array.from(
-      new Set(
-        points
-          .map((p) =>
-            p.configuration?.id ? parseInt(p.configuration.id, 10) : null,
-          )
-          .filter((id): id is number => id !== null),
-      ),
-    );
 
     const testRun = await testApi.createTestRun(
       {
@@ -89,8 +71,7 @@ export class AzureDevOpsService {
           `Automated Test Run - ${new Date().toISOString()}`,
         automated: true,
         plan: { id: this.config.planId.toString() },
-        pointIds,
-        configurationIds,
+        configurationIds: [],
       },
       this.config.projectId,
     );
@@ -187,9 +168,12 @@ export class AzureDevOpsService {
 
       if (missingPoints.length > 0) {
         await testApi.addTestResultsToTestRun(
+          // Planned results are rejected unless point id, case id, revision and title are all present.
           missingPoints.map((p) => ({
             testPoint: { id: p.id!.toString() },
             testCase: { id: p.testCase!.id },
+            testCaseRevision: 1,
+            testCaseTitle: p.testCase?.name || `Test case ${p.testCase!.id}`,
             configuration: p.configuration?.id
               ? { id: p.configuration.id }
               : undefined,

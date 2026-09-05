@@ -122,6 +122,8 @@ describe("AzureDevOpsService", () => {
         {
           testPoint: { id: "10" },
           testCase: { id: "1001" },
+          testCaseRevision: 1,
+          testCaseTitle: "Test case 1001",
           configuration: { id: "1" },
         },
       ],

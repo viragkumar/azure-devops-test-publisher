@@ -133,6 +133,8 @@ describe("AzureDevOpsReporterService integration", () => {
         {
           testPoint: { id: "11" },
           testCase: { id: "5678" },
+          testCaseRevision: 1,
+          testCaseTitle: "Test case 5678",
           configuration: { id: "1" },
         },
       ],

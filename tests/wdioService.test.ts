@@ -51,7 +51,7 @@ describe("AzureDevOpsWdioService", () => {
   });
 
   describe("onPrepare / onComplete", () => {
-    test("onPrepare creates one run for the whole suite and shares its id", async () => {
+    test("onPrepare creates one empty run and shares its id", async () => {
       const service = new AzureDevOpsWdioService(options);
 
       await service.onPrepare();
@@ -60,11 +60,11 @@ describe("AzureDevOpsWdioService", () => {
         expect.objectContaining({
           automated: true,
           plan: { id: "100" },
-          pointIds: [10, 11],
-          configurationIds: [1, 2],
         }),
         "TestProject",
       );
+      const [runPayload] = mockTestApi.createTestRun.mock.calls[0];
+      expect(runPayload).not.toHaveProperty("pointIds");
       expect(process.env[RUN_ID_ENV_VAR]).toBe("999");
     });
 
