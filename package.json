@@ -6,10 +6,10 @@
   "types": "dist/index.d.ts",
   "license": "MIT",
   "author": "virag <viragkumar58@gmail.com>",
-  "homepage": "https://github.com/viragkumar/azure-devops-test-publisher#readme",
+  "homepage": "https://github.com/virag8/azure-devops-test-publisher#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/viragkumar/azure-devops-test-publisher.git"
+    "url": "git+https://github.com/virag8/azure-devops-test-publisher.git"
   },
   "bugs": {
     "url": "https://github.com/viragkumar/azure-devops-test-publisher/issues"
