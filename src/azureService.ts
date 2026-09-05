@@ -1,5 +1,6 @@
 import * as azdev from "azure-devops-node-api";
 import { ITestApi } from "azure-devops-node-api/TestApi";
+import { IdentityRef } from "azure-devops-node-api/interfaces/common/VSSInterfaces";
 import {
   TestCaseResult,
   TestAttachmentRequestModel,
@@ -27,6 +28,8 @@ function matchesTestCase(
 
 export class AzureDevOpsService {
   private testApiPromise?: Promise<ITestApi>;
+  private connection?: azdev.WebApi;
+  private runByPromise?: Promise<IdentityRef | undefined>;
   private config: AzureDevOpsOptions;
   private currentRunId?: number;
   /** Whether a PAT was provided; when false, every public method is a no-op. */
@@ -46,12 +49,32 @@ export class AzureDevOpsService {
 
     const authHandler = azdev.getPersonalAccessTokenHandler(config.token);
     const connection = new azdev.WebApi(config.orgUrl, authHandler);
+    this.connection = connection;
     this.testApiPromise = connection.getTestApi();
   }
 
   /** Id of the run currently being published to, if any. */
   get runId(): number | undefined {
     return this.currentRunId;
+  }
+
+  /** PAT owner, surfaced as "Run by" on the result; Azure leaves the field blank otherwise. */
+  private async getRunBy(): Promise<IdentityRef | undefined> {
+    try {
+      this.runByPromise ??= this.connection!.connect().then(
+        (data) =>
+          data.authenticatedUser && {
+            id: data.authenticatedUser.id,
+            displayName:
+              data.authenticatedUser.customDisplayName ||
+              data.authenticatedUser.providerDisplayName,
+          },
+      );
+      return await this.runByPromise;
+    } catch (err) {
+      this.debug("Failed to resolve the Run by identity:", err);
+      return undefined;
+    }
   }
 
   private debug(message: string, payload?: unknown): void {
@@ -213,6 +236,7 @@ export class AzureDevOpsService {
 
     // 4. Map outcomes and error messages
     this.debug("Run results fetched from Azure DevOps:", runResults);
+    const runBy = await this.getRunBy();
     const updatedResults: TestCaseResult[] = runResults
       .filter(
         (result) =>
@@ -227,6 +251,7 @@ export class AzureDevOpsService {
           errorMessage: match?.errorMessage || "",
           state: "Completed",
           durationInMs: match?.durationInMs || 0,
+          runBy: result.runBy ?? runBy,
         };
       });
 
