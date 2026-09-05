@@ -318,7 +318,9 @@ describe("AzureDevOpsService", () => {
 
     expect(mockTestApi.createTestRun).not.toHaveBeenCalled();
     expect(consoleSpy).toHaveBeenCalledWith(
-      "No matching test points found in Azure DevOps for the given test cases.",
+      expect.stringContaining(
+        'No test point found for test case id(s) 9999 in project "TestProject", plan 100, suite 200',
+      ),
     );
 
     consoleSpy.mockRestore();

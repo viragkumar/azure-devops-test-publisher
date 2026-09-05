@@ -105,6 +105,17 @@ export class AzureDevOpsService {
     console.log(message, payload);
   }
 
+  /** Human readable target used in warnings and errors. */
+  private describeTarget(configurationId?: number): string {
+    const parts = [
+      `project "${this.config.projectId}"`,
+      `plan ${this.config.planId}`,
+      `suite ${this.config.suiteId}`,
+    ];
+    if (configurationId != null) parts.push(`configuration ${configurationId}`);
+    return parts.join(", ");
+  }
+
   /** Creates an empty run; points are added by `publishResults` as tests finish, so unexecuted cases are never marked in progress. */
   async createRun(): Promise<number | undefined> {
     if (!this.enabled) return undefined;
@@ -123,7 +134,9 @@ export class AzureDevOpsService {
     );
 
     if (!testRun.id) {
-      throw new Error("Failed to create Test Run in Azure DevOps.");
+      throw new Error(
+        `Failed to create Test Run in Azure DevOps for ${this.describeTarget()}; the API returned a run without an id.`,
+      );
     }
 
     this.currentRunId = testRun.id;
@@ -164,13 +177,27 @@ export class AzureDevOpsService {
     );
     this.debug("Matched test points:", matchedPoints);
 
-    if (matchedPoints.length === 0) {
+    const matchedCaseIds = new Set(
+      matchedPoints.map((p) => parseInt(p.testCase!.id!, 10)),
+    );
+    const unmatchedCaseIds = [...targetCaseIds].filter(
+      (id) => !matchedCaseIds.has(id),
+    );
+
+    if (unmatchedCaseIds.length > 0) {
       console.warn(
-        "No matching test points found in Azure DevOps for the given test cases.",
-        points,
+        `No test point found for test case id(s) ${unmatchedCaseIds.join(", ")} in ${this.describeTarget(options.configurationId)}. ` +
+          `The suite exposes ${points.length} point(s) for case id(s) ${
+            points
+              .map((p) => p.testCase?.id)
+              .filter(Boolean)
+              .join(", ") || "none"
+          }. ` +
+          "Check that the case ids in your test titles belong to this plan/suite and configuration.",
       );
-      return;
     }
+
+    if (matchedPoints.length === 0) return;
 
     const pointIds = matchedPoints.map((p) => p.id!);
     this.debug("Point IDs for the test run:", pointIds);
@@ -245,7 +272,9 @@ export class AzureDevOpsService {
       );
 
       if (!testRun.id) {
-        throw new Error("Failed to create Test Run in Azure DevOps.");
+        throw new Error(
+          `Failed to create Test Run in Azure DevOps for ${this.describeTarget(options.configurationId)} with point id(s) ${pointIds.join(", ")}.`,
+        );
       }
       runId = testRun.id;
     }
