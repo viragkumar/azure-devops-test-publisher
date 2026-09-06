@@ -6,7 +6,7 @@ import {
   TestAttachment,
   TestResultItem,
 } from "./types";
-import { extractTestCaseId } from "./utils";
+import { extractTestCaseId, RUN_ID_ENV_VAR } from "./utils";
 
 /**
  * Playwright reporter that creates a single Test Run in `onBegin`, collects every
@@ -32,8 +32,7 @@ export default class AzureDevOpsPlaywrightReporter implements Reporter {
   }
 
   async onBegin(): Promise<void> {
-    // `0` behaves like "not supplied" so a fresh run gets created.
-    const existingRunId = this.options.runId || undefined;
+    const existingRunId = this.resolveExistingRunId();
     if (existingRunId) {
       this.runId = existingRunId;
       console.log(`Reusing Azure DevOps test run: ${existingRunId}`);
@@ -44,6 +43,14 @@ export default class AzureDevOpsPlaywrightReporter implements Reporter {
     if (this.runId !== undefined) {
       console.log(`Azure DevOps test run created: ${this.runId}`);
     }
+  }
+
+  /** Checks the shared `AZURE_DEVOPS_TEST_RUN_ID` env var before the `runId` option; `0` and unset both mean "create a new run". */
+  private resolveExistingRunId(): number | undefined {
+    const fromEnv = process.env[RUN_ID_ENV_VAR];
+    const parsed = fromEnv ? parseInt(fromEnv, 10) : NaN;
+    const runId = Number.isNaN(parsed) ? this.options.runId : parsed;
+    return runId || undefined;
   }
 
   onTestEnd(test: TestCase, result: TestResult): void {
@@ -88,25 +95,24 @@ export default class AzureDevOpsPlaywrightReporter implements Reporter {
     return "Failed";
   }
 
-  /** playwright-bdd exposes Gherkin `@tags` as annotations (type `"tag"`), not on the title; check those before falling back to the title/scenario name. */
+  /**
+   * Checks tags before falling back to the title/scenario name. Two tag sources are merged:
+   * native Playwright tags (`test(title, { tag: [...] })`, exposed as `TestCase.tags`) and
+   * playwright-bdd's Gherkin `@tags`, exposed as `annotations` of type `"tag"` instead.
+   */
   private extractCaseId(test: TestCase): number | null {
     const pattern = this.options.caseIdPattern;
-    const tagAnnotations = test.annotations.filter((a) => a.type === "tag");
+    const tags = [
+      ...(test.tags ?? []),
+      ...test.annotations
+        .filter((a) => a.type === "tag")
+        .map((a) => a.description ?? ""),
+    ];
 
-    for (const tag of tagAnnotations) {
-      const caseId = extractTestCaseId(tag.description ?? "", pattern);
-      if (caseId) {
-        this.debug("Matched case id from tag annotation:", {
-          tag: tag.description,
-          caseId,
-        });
-        return caseId;
-      }
-    }
-
-    const caseId = extractTestCaseId(test.title, pattern);
-    this.debug("Extracted case id from test title:", {
+    const caseId = extractTestCaseId(test.title, pattern, tags);
+    this.debug("Extracted case id from test title/tags:", {
       title: test.title,
+      tags,
       pattern: String(pattern ?? "default C123/#123"),
       caseId,
     });

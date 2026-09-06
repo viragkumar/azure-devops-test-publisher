@@ -7,10 +7,10 @@ import {
   TestAttachment,
   TestResultItem,
 } from "./types";
-import { extractTestCaseId } from "./utils";
+import { extractTestCaseId, RUN_ID_ENV_VAR } from "./utils";
 
-/** Shares the run id created in the launcher process with the worker processes. */
-export const RUN_ID_ENV_VAR = "AZURE_DEVOPS_TEST_RUN_ID";
+/** Re-exported for backward compatibility; also shared with the Playwright reporter. */
+export { RUN_ID_ENV_VAR };
 
 interface ScreenshotCapableBrowser {
   takeScreenshot: () => Promise<string>;

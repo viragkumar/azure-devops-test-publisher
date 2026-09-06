@@ -1,4 +1,5 @@
 import AzureDevOpsPlaywrightReporter from "../src/playwrightService";
+import { RUN_ID_ENV_VAR } from "../src/utils";
 import type { TestCase, TestResult } from "@playwright/test/reporter";
 import * as azdev from "azure-devops-node-api";
 
@@ -7,8 +8,9 @@ jest.mock("azure-devops-node-api");
 function makeTestCase(
   title: string,
   annotations: Array<{ type: string; description?: string }> = [],
+  tags: string[] = [],
 ): TestCase {
-  return { title, annotations } as unknown as TestCase;
+  return { title, annotations, tags } as unknown as TestCase;
 }
 
 function makeResult(overrides: Partial<TestResult> = {}): TestResult {
@@ -42,6 +44,7 @@ describe("AzureDevOpsPlaywrightReporter", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env[RUN_ID_ENV_VAR];
 
     jest.mocked(azdev.getPersonalAccessTokenHandler).mockReturnValue({} as any);
     jest.mocked(azdev.WebApi).mockImplementation(
@@ -63,6 +66,10 @@ describe("AzureDevOpsPlaywrightReporter", () => {
       async (results) => results,
     );
     mockTestApi.updateTestRun.mockResolvedValue({});
+  });
+
+  afterEach(() => {
+    delete process.env[RUN_ID_ENV_VAR];
   });
 
   test("onBegin creates an empty run", async () => {
@@ -93,6 +100,30 @@ describe("AzureDevOpsPlaywrightReporter", () => {
     const reporter = new AzureDevOpsPlaywrightReporter({
       ...options,
       runId: 0,
+    });
+
+    await reporter.onBegin();
+
+    expect(mockTestApi.createTestRun).toHaveBeenCalledTimes(1);
+  });
+
+  test("onBegin reuses the run id from AZURE_DEVOPS_TEST_RUN_ID over the option", async () => {
+    process.env[RUN_ID_ENV_VAR] = "777";
+    const reporter = new AzureDevOpsPlaywrightReporter({
+      ...options,
+      runId: 555,
+    });
+
+    await reporter.onBegin();
+
+    expect(mockTestApi.createTestRun).not.toHaveBeenCalled();
+  });
+
+  test("onBegin creates a new run when AZURE_DEVOPS_TEST_RUN_ID is 0", async () => {
+    process.env[RUN_ID_ENV_VAR] = "0";
+    const reporter = new AzureDevOpsPlaywrightReporter({
+      ...options,
+      runId: 555,
     });
 
     await reporter.onBegin();
@@ -138,6 +169,44 @@ describe("AzureDevOpsPlaywrightReporter", () => {
 
     reporter.onTestEnd(
       makeTestCase("User can log in", [{ type: "tag", description: "@C1234" }]),
+      makeResult({ status: "passed" }),
+    );
+    await reporter.onEnd();
+
+    expect(mockTestApi.updateTestResults).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ outcome: "Passed" })]),
+      "TestProject",
+      999,
+    );
+  });
+
+  test("extracts the case id from a native Playwright tag when the title has none", async () => {
+    const reporter = new AzureDevOpsPlaywrightReporter(options);
+    await reporter.onBegin();
+
+    reporter.onTestEnd(
+      makeTestCase("User can log in", [], ["@C1234"]),
+      makeResult({ status: "passed" }),
+    );
+    await reporter.onEnd();
+
+    expect(mockTestApi.updateTestResults).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ outcome: "Passed" })]),
+      "TestProject",
+      999,
+    );
+  });
+
+  test("still falls back to the title when neither native tags nor annotations match", async () => {
+    const reporter = new AzureDevOpsPlaywrightReporter(options);
+    await reporter.onBegin();
+
+    reporter.onTestEnd(
+      makeTestCase(
+        "C1234 User can log in",
+        [{ type: "tag", description: "@smoke" }],
+        ["@regression"],
+      ),
       makeResult({ status: "passed" }),
     );
     await reporter.onEnd();

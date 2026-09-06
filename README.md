@@ -8,7 +8,7 @@ Publish automated test results and failure screenshots from WebdriverIO (Mocha o
 - **Only executed tests appear in the run** — the run is created empty and test points are attached as tests finish, so cases in the suite that never ran are not left sitting in an _In progress_ state.
 - **Mocha support** — extracts the Azure DevOps test case id from a test title (e.g. `C1234 login works`) via the `afterTest` hook.
 - **Playwright support** — a native `Reporter` (`AzureDevOpsPlaywrightReporter`) for `@playwright/test`, importable from the `/playwright` subpath.
-- **Cucumber / BDD support** — extracts the test case id from a scenario's `@C1234` tag, falling back to the scenario name, via the `afterScenario` hook.
+- **Cucumber / BDD support** — extracts the test case id from a scenario's `@C1234` tag (Cucumber pickle tags or playwright-bdd annotations), falling back to the scenario name, via a shared tag-aware extractor.
 - **Custom case id pattern** — override the default `C123`/`#123` matcher with your own regex (e.g. `TC-(\d+)`) via `caseIdPattern`.
 - **Automatic failure screenshots** — captures a browser screenshot and attaches it to the Azure DevOps result whenever a test/scenario fails (toggle with `screenshotOnFailure`).
 - **Configuration-aware publishing** — scope a publish to a single Azure DevOps configuration (Android vs iOS, Chrome vs Firefox, …) so parallel jobs never overwrite each other's results for the same test case.
@@ -89,7 +89,7 @@ If no tag is present, the case id is parsed from the scenario name instead.
 }
 ```
 
-The pattern must contain exactly one capturing group for the numeric id.
+The pattern must contain exactly one capturing group for the numeric id. It is applied consistently everywhere a case id is extracted — Mocha/Playwright titles, and Cucumber/playwright-bdd `@tags` — since all of them go through the same `extractTestCaseId(title, pattern, tags)` helper, which checks tags first and falls back to the title/scenario name.
 
 ### Test configurations (Android vs iOS, Chrome vs Firefox, …)
 
@@ -224,6 +224,18 @@ test("C1234 login works", async ({ page }) => {
 });
 ```
 
+### playwright-bdd feature files
+
+`playwright-bdd` compiles each Gherkin scenario into a real Playwright `TestCase`, but exposes `@tags` as `annotations` (type `"tag"`) rather than appending them to the title. The reporter checks tag annotations first and falls back to the scenario name, so tag your scenarios the same way as the WDIO Cucumber integration:
+
+```gherkin
+@C1234
+Scenario: User can log in
+  Given the user is on the login page
+  When they submit valid credentials
+  Then they should see the dashboard
+```
+
 ### Screenshots
 
 The reporter attaches whatever screenshot Playwright itself captured on failure — it does not take a new one. Set `use.screenshot` to `"only-on-failure"` or `"on"` in your Playwright config for this to have an attachment to pick up.
@@ -345,6 +357,8 @@ npm run build        # compile to dist/
 ```
 
 `npm run test:real` reads its credentials from a local `.env` file (`AZURE_ORG_URL`, `AZURE_PAT`, `AZURE_PROJECT`, `AZURE_PLAN_ID`, `AZURE_SUITE_ID`, `AZURE_TEST_CASE_ID`) and skips itself when they are absent.
+
+> Using pnpm instead of npm? pnpm 10+ blocks install scripts from `jest`'s optional native deps (`@parcel/watcher`, `unrs-resolver`) by default. This repo's [pnpm-workspace.yaml](pnpm-workspace.yaml) pre-approves them via `allowBuilds`; if you see `ERR_PNPM_IGNORED_BUILDS`, run `pnpm approve-builds` or add the equivalent entries yourself.
 
 ## License
 
