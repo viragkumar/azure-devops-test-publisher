@@ -59,6 +59,7 @@ describe("AzureDevOpsService", () => {
         testCaseId: 1001,
         outcome: "Failed",
         errorMessage: "Assertion failed",
+        stackTrace: "Error: Assertion failed\n    at Object.<anonymous>",
         durationInMs: 1500,
         attachments: [
           {
@@ -90,6 +91,18 @@ describe("AzureDevOpsService", () => {
       "TestProject",
       999,
       1,
+    );
+
+    // Verify the error message and stack trace are forwarded to Azure DevOps
+    expect(mockTestApi.updateTestResults).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          errorMessage: "Assertion failed",
+          stackTrace: "Error: Assertion failed\n    at Object.<anonymous>",
+        }),
+      ]),
+      "TestProject",
+      999,
     );
 
     // Verify run completion

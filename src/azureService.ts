@@ -302,6 +302,8 @@ export class AzureDevOpsService {
           ...result,
           outcome: match ? match.outcome : "Inconclusive",
           errorMessage: match?.errorMessage || "",
+          // Azure DevOps truncates this to 1000 chars server-side.
+          stackTrace: match?.stackTrace || "",
           state: "Completed",
           durationInMs: match?.durationInMs || 0,
           runBy: result.runBy ?? runBy,

@@ -48,6 +48,7 @@ export class AzureDevOpsReporterService {
       testCaseId: caseId,
       outcome: results.passed ? "Passed" : "Failed",
       errorMessage: results.error?.message,
+      stackTrace: results.error?.stack,
       durationInMs: test.duration,
       attachments,
       configurationId: this.options.configurationId,

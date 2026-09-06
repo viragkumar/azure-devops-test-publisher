@@ -65,6 +65,11 @@ export default class AzureDevOpsPlaywrightReporter implements Reporter {
           .map((e) => e.message)
           .filter(Boolean)
           .join("\n") || undefined,
+      stackTrace:
+        result.errors
+          .map((e) => e.stack)
+          .filter(Boolean)
+          .join("\n\n") || undefined,
       durationInMs: result.duration,
       attachments: this.collectScreenshots(caseId, test, result),
       configurationId: this.options.configurationId,

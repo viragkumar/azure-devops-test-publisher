@@ -168,6 +168,7 @@ describe("AzureDevOpsWdioService", () => {
             id: 2,
             outcome: "Failed",
             errorMessage: "boom",
+            stackTrace: expect.stringContaining("Error: boom"),
             durationInMs: 340,
           }),
         ]),

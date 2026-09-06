@@ -92,6 +92,7 @@ export default class AzureDevOpsWdioService
       testCaseId: caseId,
       outcome: results.passed ? "Passed" : "Failed",
       errorMessage: results.error?.message,
+      stackTrace: results.error?.stack,
       durationInMs: results.duration ?? 0,
       attachments: await this.captureScreenshot(caseId, test, results),
       configurationId: this._options.configurationId,
@@ -110,6 +111,7 @@ export default class AzureDevOpsWdioService
       testCaseId: caseId,
       outcome: result.passed ? "Passed" : "Failed",
       errorMessage: this.stringifyError(result.error),
+      stackTrace: this.stackTraceOf(result.error),
       durationInMs: result.duration ?? 0,
       attachments: await this.captureScreenshot(
         caseId,
@@ -124,6 +126,10 @@ export default class AzureDevOpsWdioService
   private stringifyError(error: unknown): string | undefined {
     if (!error) return undefined;
     return error instanceof Error ? error.message : String(error);
+  }
+
+  private stackTraceOf(error: unknown): string | undefined {
+    return error instanceof Error ? error.stack : undefined;
   }
 
   async after(): Promise<void> {

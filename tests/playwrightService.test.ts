@@ -243,6 +243,40 @@ describe("AzureDevOpsPlaywrightReporter", () => {
     );
   });
 
+  test("maps a failed test's stack trace, joining multiple errors", async () => {
+    const reporter = new AzureDevOpsPlaywrightReporter(options);
+    await reporter.onBegin();
+
+    reporter.onTestEnd(
+      makeTestCase("C1234 login fails"),
+      makeResult({
+        status: "failed",
+        errors: [
+          {
+            message: "Assertion failed",
+            stack: "Error: Assertion failed\n    at spec.ts:10:5",
+          } as any,
+          {
+            message: "Second error",
+            stack: "Error: Second error\n    at spec.ts:12:5",
+          } as any,
+        ],
+      }),
+    );
+    await reporter.onEnd();
+
+    expect(mockTestApi.updateTestResults).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          stackTrace:
+            "Error: Assertion failed\n    at spec.ts:10:5\n\nError: Second error\n    at spec.ts:12:5",
+        }),
+      ]),
+      "TestProject",
+      999,
+    );
+  });
+
   test("attaches an image attachment from a failed test", async () => {
     const reporter = new AzureDevOpsPlaywrightReporter(options);
     await reporter.onBegin();

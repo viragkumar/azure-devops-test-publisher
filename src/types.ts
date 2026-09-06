@@ -55,6 +55,8 @@ export interface TestResultItem {
   testCaseId: number;
   outcome: "Passed" | "Failed" | "Inconclusive";
   errorMessage?: string;
+  /** Stack trace of the failure, if available; Azure DevOps truncates this to 1000 chars. */
+  stackTrace?: string;
   durationInMs?: number;
   attachments?: TestAttachment[];
   /** Azure DevOps test configuration id; disambiguates test points/results that share a case id across configurations (e.g. Android vs iOS). */
