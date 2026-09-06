@@ -7,6 +7,7 @@ Publish automated test results and failure screenshots from WebdriverIO (Mocha o
 - **Single shared Test Run** — creates one Azure DevOps Test Run for the whole suite in the launcher process and shares its id with all parallel workers via an environment variable, so results from every spec land in the same run.
 - **Only executed tests appear in the run** — the run is created empty and test points are attached as tests finish, so cases in the suite that never ran are not left sitting in an _In progress_ state.
 - **Mocha support** — extracts the Azure DevOps test case id from a test title (e.g. `C1234 login works`) via the `afterTest` hook.
+- **Playwright support** — a native `Reporter` (`AzureDevOpsPlaywrightReporter`) for `@playwright/test`, importable from the `/playwright` subpath.
 - **Cucumber / BDD support** — extracts the test case id from a scenario's `@C1234` tag, falling back to the scenario name, via the `afterScenario` hook.
 - **Custom case id pattern** — override the default `C123`/`#123` matcher with your own regex (e.g. `TC-(\d+)`) via `caseIdPattern`.
 - **Automatic failure screenshots** — captures a browser screenshot and attaches it to the Azure DevOps result whenever a test/scenario fails (toggle with `screenshotOnFailure`).
@@ -180,6 +181,56 @@ titles belong to this plan/suite and configuration.
 ```
 
 Common causes: the case lives in a different suite, the suite id belongs to another plan, or the worker's `configurationId` doesn't match the point's configuration. Set `debug: true` to also dump the raw API payloads.
+
+## Usage with Playwright
+
+Register `AzureDevOpsPlaywrightReporter` as a reporter in `playwright.config.ts`, importing it from the `/playwright` subpath:
+
+```ts
+import { defineConfig } from "@playwright/test";
+
+export default defineConfig({
+  use: {
+    screenshot: "only-on-failure", // required for failure screenshots to be attached
+  },
+  reporter: [
+    ["list"],
+    [
+      "@virag8/azure-devops-test-publisher/playwright",
+      {
+        orgUrl: process.env.AZURE_ORG_URL,
+        token: process.env.AZURE_PAT,
+        projectId: "MyProject", // name or GUID
+        planId: 123,
+        suiteId: 456,
+        screenshotOnFailure: true, // optional, defaults to true
+      },
+    ],
+  ],
+});
+```
+
+Requires `@playwright/test` as a peer dependency (already present if you're using Playwright's test runner).
+
+Unlike the WebdriverIO service, Playwright reporters run in a single main process regardless of how many workers execute tests, so there's no run id to share across processes — the reporter creates the run in `onBegin`, collects every test via `onTestEnd`, and publishes + completes the run in `onEnd`.
+
+### Test titles
+
+Tag the test title with the Azure DevOps test case id, same as Mocha:
+
+```ts
+test("C1234 login works", async ({ page }) => {
+  // ...
+});
+```
+
+### Screenshots
+
+The reporter attaches whatever screenshot Playwright itself captured on failure — it does not take a new one. Set `use.screenshot` to `"only-on-failure"` or `"on"` in your Playwright config for this to have an attachment to pick up.
+
+### Options
+
+`AzureDevOpsPlaywrightOptions` has the same shape as `AzureDevOpsWdioOptions` (see [Configuration reference](#configuration-reference)): `screenshotOnFailure`, `configurationId`, plus everything from `AzureDevOpsOptions`. The same `runId`, `configurationId`, and `AzureDevOpsConfigError` behavior described above for WebdriverIO applies here too.
 
 ## Usage as a standalone reporter
 

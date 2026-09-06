@@ -36,6 +36,14 @@ export interface AzureDevOpsWdioOptions extends AzureDevOpsOptions {
   configurationId?: number;
 }
 
+/** Same shape as `AzureDevOpsWdioOptions`, kept separate so the WebdriverIO and Playwright integrations can diverge independently. */
+export interface AzureDevOpsPlaywrightOptions extends AzureDevOpsOptions {
+  /** Attach Playwright's screenshot attachment to failed results. Defaults to true; requires Playwright's own `screenshot` option to actually capture one. */
+  screenshotOnFailure?: boolean;
+  /** Azure DevOps test configuration id (e.g. Chromium vs WebKit) results from this reporter belong to. Required when the same test case is configured for multiple configurations, otherwise results can bleed across configurations. */
+  configurationId?: number;
+}
+
 export interface TestAttachment {
   fileName: string;
   base64Content: string;

@@ -83,3 +83,4 @@ export class AzureDevOpsReporterService {
 export * from "./types";
 export * from "./azureService";
 export * from "./wdioService";
+export * from "./playwrightService";

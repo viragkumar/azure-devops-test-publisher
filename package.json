@@ -1,9 +1,19 @@
 {
   "name": "@virag8/azure-devops-test-publisher",
-  "version": "1.2.3",
-  "description": "Upload test results and screenshots to Azure DevOps Test Plans from WebdriverIO or custom TS runners",
+  "version": "1.3.0",
+  "description": "Upload test results and screenshots to Azure DevOps Test Plans from WebdriverIO, Playwright, or custom TS runners",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./playwright": {
+      "types": "./dist/playwrightService.d.ts",
+      "default": "./dist/playwrightService.js"
+    }
+  },
   "license": "MIT",
   "author": "virag <viragkumar58@gmail.com>",
   "homepage": "https://github.com/viragkumar/azure-devops-test-publisher#readme",
@@ -18,6 +28,8 @@
     "webdriverio",
     "wdio",
     "wdio-service",
+    "playwright",
+    "playwright-reporter",
     "ado",
     "azure-devops",
     "azure-test-plans",
@@ -51,7 +63,16 @@
   "dependencies": {
     "azure-devops-node-api": "^12.0.0"
   },
+  "peerDependencies": {
+    "@playwright/test": ">=1.40.0"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^20.0.0",
     "@wdio/types": "^9.31.2",
