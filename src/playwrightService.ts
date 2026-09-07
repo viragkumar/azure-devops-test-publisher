@@ -8,6 +8,10 @@ import {
 } from "./types";
 import { extractTestCaseId, RUN_ID_ENV_VAR } from "./utils";
 
+const green = (text: string) => `\u001b[32m${text}\u001b[39m`;
+const boldCyanUnderline = (text: string) =>
+  `\u001b[1m\u001b[4m\u001b[36m${text}\u001b[39m\u001b[24m\u001b[22m`;
+
 /**
  * Playwright reporter that creates a single Test Run in `onBegin`, collects every
  * test's result via `onTestEnd`, and publishes + completes the run in `onEnd`.
@@ -35,13 +39,13 @@ export default class AzureDevOpsPlaywrightReporter implements Reporter {
     const existingRunId = this.resolveExistingRunId();
     if (existingRunId) {
       this.runId = existingRunId;
-      console.log(`Reusing Azure DevOps test run: ${existingRunId}`);
+      console.log(green(`Reusing Azure DevOps test run: ${existingRunId}`));
       return;
     }
 
     this.runId = await this.service.createRun();
     if (this.runId !== undefined) {
-      console.log(`Azure DevOps test run created: ${this.runId}`);
+      console.log(green(`Azure DevOps test run created: ${this.runId}`));
     }
   }
 
@@ -90,7 +94,14 @@ export default class AzureDevOpsPlaywrightReporter implements Reporter {
 
     if (this.runId !== undefined) {
       await this.service.completeRun(this.runId);
-      console.log(`Azure DevOps test run completed: ${this.runId}`);
+      console.log(green(`Azure DevOps test run completed: ${this.runId}`));
+      const url = new URL(
+        `/${this.options.projectId}/_testManagement/runs`,
+        `https://${this.options.orgUrl}`,
+      );
+      console.log(
+        `View completed Azure DevOps test run here: ${boldCyanUnderline(url.toString())}`,
+      );
     }
   }
 

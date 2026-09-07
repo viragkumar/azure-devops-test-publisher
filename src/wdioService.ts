@@ -8,7 +8,10 @@ import {
   TestResultItem,
 } from "./types";
 import { extractTestCaseId, RUN_ID_ENV_VAR } from "./utils";
-const chalk = require("chalk");
+
+const green = (text: string) => `\u001b[32m${text}\u001b[39m`;
+const boldCyanUnderline = (text: string) =>
+  `\u001b[1m\u001b[4m\u001b[36m${text}\u001b[39m\u001b[24m\u001b[22m`;
 
 /** Re-exported for backward compatibility; also shared with the Playwright reporter. */
 export { RUN_ID_ENV_VAR };
@@ -49,9 +52,7 @@ export default class AzureDevOpsWdioService
     const existingRunId = this.resolveRunId();
     if (existingRunId) {
       process.env[RUN_ID_ENV_VAR] = existingRunId.toString();
-      console.log(
-        chalk.green(`Reusing Azure DevOps test run: ${existingRunId}`),
-      );
+      console.log(green(`Reusing Azure DevOps test run: ${existingRunId}`));
       return;
     }
 
@@ -59,7 +60,7 @@ export default class AzureDevOpsWdioService
     if (runId === undefined) return;
 
     process.env[RUN_ID_ENV_VAR] = runId.toString();
-    console.log(chalk.green(`Azure DevOps test run created: ${runId}`));
+    console.log(green(`Azure DevOps test run created: ${runId}`));
   }
 
   async onComplete(): Promise<void> {
@@ -73,7 +74,7 @@ export default class AzureDevOpsWdioService
       `https://${this._options.orgUrl}`,
     );
     console.log(
-      `View completed Azure DevOps test run here: ${chalk.bold.cyan.underline(url.toString())}`,
+      `View completed Azure DevOps test run here: ${boldCyanUnderline(url.toString())}`,
     );
   }
 
