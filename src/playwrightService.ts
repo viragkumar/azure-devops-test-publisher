@@ -95,12 +95,9 @@ export default class AzureDevOpsPlaywrightReporter implements Reporter {
     if (this.runId !== undefined) {
       await this.service.completeRun(this.runId);
       console.log(green(`Azure DevOps test run completed: ${this.runId}`));
-      const url = new URL(
-        `/${this.options.projectId}/_testManagement/runs`,
-        `https://${this.options.orgUrl}`,
-      );
+      const url = `https://${this.options.orgUrl}/${this.options.projectId}/_testManagement/runs?runId=${this.runId}`;
       console.log(
-        `View completed Azure DevOps test run here: ${boldCyanUnderline(url.toString())}`,
+        `View completed Azure DevOps test run here: ${boldCyanUnderline(url)}`,
       );
     }
   }

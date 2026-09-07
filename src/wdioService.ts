@@ -69,12 +69,10 @@ export default class AzureDevOpsWdioService
 
     await this.getService().completeRun(runId);
     delete process.env[RUN_ID_ENV_VAR];
-    const url = new URL(
-      `/${this._options.projectId}/_testManagement/runs`,
-      `https://${this._options.orgUrl}`,
-    );
+    const url = `https://${this._options.orgUrl}/${this._options.projectId}/_testManagement/runs?runId=${runId}`;
+
     console.log(
-      `View completed Azure DevOps test run here: ${boldCyanUnderline(url.toString())}`,
+      `View completed Azure DevOps test run here: ${boldCyanUnderline(url)}`,
     );
   }
 
