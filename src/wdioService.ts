@@ -69,11 +69,9 @@ export default class AzureDevOpsWdioService
 
     await this.getService().completeRun(runId);
     delete process.env[RUN_ID_ENV_VAR];
-    const url = `https://${this._options.orgUrl}/${this._options.projectId}/_testManagement/runs?runId=${runId}`;
-
-    console.log(
-      `View completed Azure DevOps test run here: ${boldCyanUnderline(url)}`,
-    );
+    console.log(green(`Azure DevOps test run completed: ${runId}`));
+    const url = `${this._options.orgUrl}/${this._options.projectId}/_testManagement/runs?runId=${runId}`;
+    console.log(`Published Test Run: ${boldCyanUnderline(url)}`);
   }
 
   // --- worker process hooks ---
