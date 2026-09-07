@@ -398,4 +398,133 @@ describe("AzureDevOpsPlaywrightReporter", () => {
       );
     });
   });
+
+  describe("suiteIdPattern option", () => {
+    test("reads a per-test suite id from tags and ignores the configured suiteId", async () => {
+      mockTestApi.getPoints.mockImplementation(
+        async (_project: string, _plan: number, suiteId: number) =>
+          suiteId === 300
+            ? [{ id: 10, testCase: { id: "1234" }, configuration: { id: "1" } }]
+            : [
+                {
+                  id: 11,
+                  testCase: { id: "5678" },
+                  configuration: { id: "1" },
+                },
+              ],
+      );
+      mockTestApi.getTestResults.mockResolvedValue([
+        { id: 1, testCase: { id: "1234" } },
+        { id: 2, testCase: { id: "5678" } },
+      ]);
+
+      const reporter = new AzureDevOpsPlaywrightReporter({
+        ...options,
+        suiteIdPattern: /S-(\d+)/,
+      });
+      await reporter.onBegin();
+
+      reporter.onTestEnd(
+        makeTestCase("C1234 login", [], ["@S-300"]),
+        makeResult({ status: "passed" }),
+      );
+      reporter.onTestEnd(
+        makeTestCase("C5678 logout", [{ type: "tag", description: "@S-400" }]),
+        makeResult({ status: "passed" }),
+      );
+      await reporter.onEnd();
+
+      expect(mockTestApi.getPoints).toHaveBeenCalledWith(
+        "TestProject",
+        100,
+        300,
+      );
+      expect(mockTestApi.getPoints).toHaveBeenCalledWith(
+        "TestProject",
+        100,
+        400,
+      );
+      expect(mockTestApi.getPoints).not.toHaveBeenCalledWith(
+        "TestProject",
+        100,
+        200,
+      );
+    });
+
+    test("reads the suite id from the title when no tag matches", async () => {
+      const reporter = new AzureDevOpsPlaywrightReporter({
+        ...options,
+        suiteIdPattern: /S-(\d+)/,
+      });
+      await reporter.onBegin();
+
+      reporter.onTestEnd(
+        makeTestCase("C1234 S-321 login", [], ["@smoke"]),
+        makeResult({ status: "passed" }),
+      );
+      await reporter.onEnd();
+
+      expect(mockTestApi.getPoints).toHaveBeenCalledWith(
+        "TestProject",
+        100,
+        321,
+      );
+    });
+
+    test("falls back to the configured suiteId when nothing matches the pattern", async () => {
+      const reporter = new AzureDevOpsPlaywrightReporter({
+        ...options,
+        suiteIdPattern: /S-(\d+)/,
+      });
+      await reporter.onBegin();
+
+      reporter.onTestEnd(
+        makeTestCase("C1234 login"),
+        makeResult({ status: "passed" }),
+      );
+      await reporter.onEnd();
+
+      expect(mockTestApi.getPoints).toHaveBeenCalledWith(
+        "TestProject",
+        100,
+        200,
+      );
+    });
+  });
+
+  describe("upload logging", () => {
+    test("logs the suite id, case id and outcome of every uploaded result", async () => {
+      const logSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+      const reporter = new AzureDevOpsPlaywrightReporter({
+        ...options,
+        suiteIdPattern: /S-(\d+)/,
+      });
+      await reporter.onBegin();
+
+      reporter.onTestEnd(
+        makeTestCase("C1234 S-300 login", [], []),
+        makeResult({ status: "passed" }),
+      );
+      reporter.onTestEnd(
+        makeTestCase("C5678 logout"),
+        makeResult({ status: "failed" }),
+      );
+      await reporter.onEnd();
+
+      const logged = logSpy.mock.calls.map(([line]) => String(line));
+      expect(logged).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining(
+            "Publishing to Azure DevOps - suite 300, test case 1234:",
+          ),
+          expect.stringContaining(
+            "Publishing to Azure DevOps - suite 200, test case 5678:",
+          ),
+        ]),
+      );
+      expect(logged.join("\n")).toContain("Passed");
+      expect(logged.join("\n")).toContain("Failed");
+      logSpy.mockRestore();
+    });
+  });
 });

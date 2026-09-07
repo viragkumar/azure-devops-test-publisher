@@ -378,6 +378,94 @@ describe("AzureDevOpsService", () => {
     );
   });
 
+  describe("per-result suite ids", () => {
+    test("fetches points for every suite the results target and matches them by suite", async () => {
+      mockTestApi.getPoints.mockImplementation(
+        async (_project: string, _plan: number, suiteId: number) =>
+          suiteId === 300
+            ? [{ id: 10, testCase: { id: "1001" }, configuration: { id: "1" } }]
+            : [
+                {
+                  id: 11,
+                  testCase: { id: "2002" },
+                  configuration: { id: "1" },
+                },
+              ],
+      );
+      mockTestApi.createTestRun.mockResolvedValue({ id: 999 });
+      mockTestApi.getTestResults.mockResolvedValue([
+        { id: 1, testCase: { id: "1001" } },
+        { id: 2, testCase: { id: "2002" } },
+      ]);
+      mockTestApi.updateTestResults.mockImplementation(
+        async (results: any) => results,
+      );
+
+      await service.publishResults([
+        { testCaseId: 1001, suiteId: 300, outcome: "Passed" },
+        { testCaseId: 2002, suiteId: 400, outcome: "Failed" },
+      ]);
+
+      expect(mockTestApi.getPoints).toHaveBeenCalledTimes(2);
+      expect(mockTestApi.getPoints).toHaveBeenCalledWith(
+        "TestProject",
+        100,
+        300,
+      );
+      expect(mockTestApi.getPoints).toHaveBeenCalledWith(
+        "TestProject",
+        100,
+        400,
+      );
+      expect(mockTestApi.createTestRun).toHaveBeenCalledWith(
+        expect.objectContaining({ pointIds: [10, 11] }),
+        "TestProject",
+      );
+    });
+
+    test("falls back to the configured suiteId for results without one", async () => {
+      mockTestApi.getPoints.mockResolvedValue([
+        { id: 10, testCase: { id: "1001" }, configuration: { id: "1" } },
+      ]);
+      mockTestApi.createTestRun.mockResolvedValue({ id: 999 });
+      mockTestApi.getTestResults.mockResolvedValue([
+        { id: 1, testCase: { id: "1001" } },
+      ]);
+      mockTestApi.updateTestResults.mockImplementation(
+        async (results: any) => results,
+      );
+
+      await service.publishResults([{ testCaseId: 1001, outcome: "Passed" }]);
+
+      expect(mockTestApi.getPoints).toHaveBeenCalledTimes(1);
+      expect(mockTestApi.getPoints).toHaveBeenCalledWith(
+        "TestProject",
+        100,
+        200,
+      );
+    });
+
+    test("ignores a point from another suite that shares the case id", async () => {
+      const warnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
+      mockTestApi.getPoints.mockResolvedValue([
+        {
+          id: 10,
+          testCase: { id: "1001" },
+          configuration: { id: "1" },
+          suite: { id: "999" },
+        },
+      ]);
+
+      const runId = await service.publishResults([
+        { testCaseId: 1001, suiteId: 300, outcome: "Passed" },
+      ]);
+
+      expect(runId).toBeUndefined();
+      expect(mockTestApi.createTestRun).not.toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+  });
+
   describe("when no PAT is configured", () => {
     let noTokenService: AzureDevOpsService;
     let consoleSpy: jest.SpyInstance;
@@ -480,6 +568,17 @@ describe("AzureDevOpsService", () => {
 
       expect(
         () => new AzureDevOpsService({ ...validOptions, token: "" }),
+      ).not.toThrow();
+    });
+
+    test("suiteId is not required when suiteIdPattern is provided", () => {
+      expect(
+        () =>
+          new AzureDevOpsService({
+            ...validOptions,
+            suiteId: undefined,
+            suiteIdPattern: /S-(\d+)/,
+          }),
       ).not.toThrow();
     });
   });

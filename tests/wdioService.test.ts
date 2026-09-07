@@ -469,4 +469,210 @@ describe("AzureDevOpsWdioService", () => {
       );
     });
   });
+
+  describe("suiteIdPattern option", () => {
+    test("reads a per-test suite id from the title and ignores the configured suiteId", async () => {
+      process.env[RUN_ID_ENV_VAR] = "555";
+      mockTestApi.getPoints.mockImplementation(
+        async (_project: string, _plan: number, suiteId: number) =>
+          suiteId === 300
+            ? [{ id: 10, testCase: { id: "1234" }, configuration: { id: "1" } }]
+            : [
+                {
+                  id: 11,
+                  testCase: { id: "5678" },
+                  configuration: { id: "1" },
+                },
+              ],
+      );
+      mockTestApi.getTestResults.mockResolvedValueOnce([]).mockResolvedValue([
+        { id: 1, testCase: { id: "1234" } },
+        { id: 2, testCase: { id: "5678" } },
+      ]);
+
+      const service = new AzureDevOpsWdioService({
+        ...options,
+        suiteIdPattern: /S-(\d+)/,
+      });
+
+      await service.afterTest(
+        { title: "C1234 S-300 login" },
+        {},
+        { passed: true, duration: 10 },
+      );
+      await service.afterTest(
+        { title: "C5678 S-400 logout" },
+        {},
+        { passed: true, duration: 10 },
+      );
+      await service.after();
+
+      expect(mockTestApi.getPoints).toHaveBeenCalledWith(
+        "TestProject",
+        100,
+        300,
+      );
+      expect(mockTestApi.getPoints).toHaveBeenCalledWith(
+        "TestProject",
+        100,
+        400,
+      );
+      expect(mockTestApi.getPoints).not.toHaveBeenCalledWith(
+        "TestProject",
+        100,
+        200,
+      );
+    });
+
+    test("reads the suite id from a Cucumber tag", async () => {
+      process.env[RUN_ID_ENV_VAR] = "555";
+      mockTestApi.getPoints.mockResolvedValue([
+        { id: 10, testCase: { id: "1234" }, configuration: { id: "1" } },
+      ]);
+      mockTestApi.getTestResults
+        .mockResolvedValueOnce([])
+        .mockResolvedValue([{ id: 1, testCase: { id: "1234" } }]);
+
+      const service = new AzureDevOpsWdioService({
+        ...options,
+        suiteIdPattern: /S-(\d+)/,
+      });
+
+      await service.afterScenario(
+        {
+          pickle: {
+            name: "Login scenario",
+            tags: [{ name: "@C1234" }, { name: "@S-321" }],
+          },
+        },
+        { passed: true, duration: 10 },
+      );
+      await service.after();
+
+      expect(mockTestApi.getPoints).toHaveBeenCalledWith(
+        "TestProject",
+        100,
+        321,
+      );
+    });
+
+    test("falls back to the configured suiteId when nothing matches the pattern", async () => {
+      process.env[RUN_ID_ENV_VAR] = "555";
+      mockTestApi.getPoints.mockResolvedValue([
+        { id: 10, testCase: { id: "1234" }, configuration: { id: "1" } },
+      ]);
+      mockTestApi.getTestResults
+        .mockResolvedValueOnce([])
+        .mockResolvedValue([{ id: 1, testCase: { id: "1234" } }]);
+
+      const service = new AzureDevOpsWdioService({
+        ...options,
+        suiteIdPattern: /S-(\d+)/,
+      });
+
+      await service.afterTest(
+        { title: "C1234 login" },
+        {},
+        { passed: true, duration: 10 },
+      );
+      await service.after();
+
+      expect(mockTestApi.getPoints).toHaveBeenCalledWith(
+        "TestProject",
+        100,
+        200,
+      );
+    });
+  });
+
+  describe("examples/login.feature", () => {
+    // Guards the tag/name combinations documented in the README sample feature file.
+    const sampleOptions = {
+      ...options,
+      suiteId: 700,
+      caseIdPattern: /TC-(\d+)/,
+      suiteIdPattern: /S-(\d+)/,
+    };
+
+    test.each([
+      [
+        "tagged case and suite",
+        ["@login", "@TC-1234", "@S-456"],
+        "User can log in",
+        456,
+      ],
+      [
+        "no suite tag falls back to suiteId",
+        ["@login", "@TC-1236"],
+        "User can log out",
+        700,
+      ],
+      [
+        "ids in the scenario name",
+        ["@login"],
+        "TC-1237 S-456 Session expires",
+        456,
+      ],
+    ])("%s", async (_name, tags, scenario, expectedSuiteId) => {
+      process.env[RUN_ID_ENV_VAR] = "555";
+      mockTestApi.getPoints.mockResolvedValue([]);
+
+      const service = new AzureDevOpsWdioService(sampleOptions);
+
+      await service.afterScenario(
+        { pickle: { name: scenario, tags: tags.map((name) => ({ name })) } },
+        { passed: true, duration: 10 },
+      );
+      await service.after();
+
+      expect(mockTestApi.getPoints).toHaveBeenCalledWith(
+        "TestProject",
+        100,
+        expectedSuiteId,
+      );
+    });
+  });
+
+  describe("upload logging", () => {
+    test("logs the suite id, case id and outcome of every uploaded result", async () => {
+      process.env[RUN_ID_ENV_VAR] = "555";
+      const logSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+      mockTestApi.getTestResults.mockResolvedValueOnce([]).mockResolvedValue([
+        { id: 1, testCase: { id: "1234" } },
+        { id: 2, testCase: { id: "5678" } },
+      ]);
+
+      const service = new AzureDevOpsWdioService({
+        ...options,
+        suiteIdPattern: /S-(\d+)/,
+      });
+
+      await service.afterTest(
+        { title: "C1234 S-300 login" },
+        {},
+        { passed: true, duration: 10 },
+      );
+      await service.afterTest(
+        { title: "C5678 logout" },
+        {},
+        { passed: false, duration: 10 },
+      );
+      await service.after();
+
+      const logged = logSpy.mock.calls.map(([line]) => String(line));
+      expect(logged).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining(
+            "Publishing to Azure DevOps - suite 300, test case 1234:",
+          ),
+          expect.stringContaining(
+            "Publishing to Azure DevOps - suite 200, test case 5678:",
+          ),
+        ]),
+      );
+      expect(logged.join("\n")).toContain("Passed");
+      expect(logged.join("\n")).toContain("Failed");
+      logSpy.mockRestore();
+    });
+  });
 });

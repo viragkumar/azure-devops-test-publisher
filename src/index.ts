@@ -4,7 +4,7 @@ import {
   TestAttachment,
   TestResultItem,
 } from "./types";
-import { extractTestCaseId } from "./utils";
+import { extractTestCaseId, extractTestSuiteId } from "./utils";
 
 export class AzureDevOpsReporterService {
   private options: AzureDevOpsWdioOptions;
@@ -46,6 +46,9 @@ export class AzureDevOpsReporterService {
 
     this.results.push({
       testCaseId: caseId,
+      suiteId:
+        extractTestSuiteId(test.title, this.options.suiteIdPattern) ??
+        undefined,
       outcome: results.passed ? "Passed" : "Failed",
       errorMessage: results.error?.message,
       stackTrace: results.error?.stack,

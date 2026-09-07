@@ -1,6 +1,18 @@
 # azure-devops-test-publisher
 
-Publish automated test results and failure screenshots from WebdriverIO (Mocha or Cucumber/BDD) — or any custom TypeScript test runner — directly to **Azure DevOps Test Plans**.
+Publish automated test results and failure screenshots from WebdriverIO (Mocha or Cucumber/BDD), Playwright — or any custom TypeScript test runner — directly to **Azure DevOps Test Plans**.
+
+## Guides
+
+Pick your runner — each guide starts with the config snippet to copy:
+
+| Runner                                              | Guide                                                                   |
+| --------------------------------------------------- | ----------------------------------------------------------------------- |
+| **WebdriverIO** (Mocha, Cucumber / BDD)             | [docs/webdriverio.md](docs/webdriverio.md#setup)                        |
+| **Playwright** (`@playwright/test`, playwright-bdd) | [docs/playwright.md](docs/playwright.md#setup)                          |
+| Custom / any runner                                 | [Usage as a standalone reporter](#usage-as-a-standalone-reporter) below |
+
+Options shared by all of them live in the [configuration reference](#configuration-reference).
 
 ## Features
 
@@ -10,12 +22,14 @@ Publish automated test results and failure screenshots from WebdriverIO (Mocha o
 - **Playwright support** — a native `Reporter` (`AzureDevOpsPlaywrightReporter`) for `@playwright/test`, importable from the `/playwright` subpath.
 - **Cucumber / BDD support** — extracts the test case id from a scenario's `@C1234` tag (Cucumber pickle tags or playwright-bdd annotations), falling back to the scenario name, via a shared tag-aware extractor.
 - **Custom case id pattern** — override the default `C123`/`#123` matcher with your own regex (e.g. `TC-(\d+)`) via `caseIdPattern`.
+- **Per-test suite ids** — set `suiteIdPattern` to read the suite id from each test's tags or title (e.g. `S-456`), so a single run can publish to many suites at once. The static `suiteId` option is ignored when this pattern matches.
 - **Automatic failure screenshots** — captures a browser screenshot and attaches it to the Azure DevOps result whenever a test/scenario fails (toggle with `screenshotOnFailure`).
 - **Configuration-aware publishing** — scope a publish to a single Azure DevOps configuration (Android vs iOS, Chrome vs Firefox, …) so parallel jobs never overwrite each other's results for the same test case.
 - **Run reuse** — publish into an existing run (`runId`), or keep a single run open across multiple publishes (`reuseTestRun` / `keepRunOpen`) instead of creating a new run every time. A run is only created when no run id is supplied — `0` counts as "not supplied".
 - **"Run by" populated** — results are stamped with the identity that owns the PAT instead of showing an empty _Run by_ column.
 - **Point pre-fetch** — pass already-fetched test points via `PublishOptions.points` to skip a redundant Azure DevOps API call.
-- **Fail-fast option validation** — a missing `orgUrl`, `projectId`, `planId` or `suiteId` throws a typed `AzureDevOpsConfigError` listing every offending key, at construction time rather than mid-run.
+- **Fail-fast option validation** — a missing `orgUrl`, `projectId`, `planId` or `suiteId` throws a typed `AzureDevOpsConfigError` listing every offending key, at construction time rather than mid-run (`suiteId` is not required when `suiteIdPattern` is set).
+- **Per-result upload log** — both reporters print one `suite <id>, test case <id>: <outcome>` line per result as it is published, so the console shows exactly what landed where.
 - **Actionable diagnostics** — warnings name the project, plan, suite, configuration and the exact test case ids that could not be matched.
 - **Resilient publishing** — publish failures are caught and logged so a flaky Azure DevOps API never fails the test run itself.
 - **Standalone reporter service** — `AzureDevOpsReporterService` for custom/non-service integrations that just need `afterTest` + `onComplete` hooks.
@@ -30,219 +44,23 @@ npm install --save-dev @virag8/azure-devops-test-publisher
 
 Requires Node.js 18 or newer.
 
-## Usage with WebdriverIO
+## Identifying test cases and suites
 
-Register the service in `wdio.conf.js` / `wdio.conf.ts`:
+Both runners share the same extraction rules — tags are checked first, then the test title / scenario name:
 
-```js
-const {
-  AzureDevOpsWdioService,
-} = require("@virag8/azure-devops-test-publisher");
+| Option           | Default                 | Purpose                                                  |
+| ---------------- | ----------------------- | -------------------------------------------------------- |
+| `caseIdPattern`  | `C123` / `#123`         | Which Azure DevOps test case a result belongs to.        |
+| `suiteIdPattern` | _none_ (uses `suiteId`) | Which suite a result belongs to, resolved per test case. |
 
-exports.config = {
-  // ...
-  services: [
-    [
-      AzureDevOpsWdioService,
-      {
-        orgUrl: process.env.AZURE_ORG_URL,
-        token: process.env.AZURE_PAT,
-        projectId: "MyProject", // name or GUID
-        planId: 123,
-        suiteId: 456,
-        screenshotOnFailure: true, // optional, defaults to true
-      },
-    ],
-  ],
-};
-```
+Each pattern must contain exactly one capturing group for the numeric id. A sample Gherkin file using both is in [examples/login.feature](examples/login.feature), walked through in the [WebdriverIO](docs/webdriverio.md#sample-feature-file-caseidpattern--suiteidpattern) and [Playwright](docs/playwright.md#sample-feature-file-caseidpattern--suiteidpattern) guides.
 
-The service creates the Test Run in `onPrepare`, collects results from every worker via `afterTest`/`afterScenario`, publishes them in `after`, and completes the run in `onComplete`.
-
-### Mocha specs
-
-Tag the test title with the Azure DevOps test case id:
-
-```js
-it("C1234 login", async () => { ... });
-```
-
-### Cucumber / BDD feature files
-
-Tag the scenario with `@C<testCaseId>`:
-
-```gherkin
-@C1234
-Scenario: User can log in
-  Given the user is on the login page
-  When they submit valid credentials
-  Then they should see the dashboard
-```
-
-If no tag is present, the case id is parsed from the scenario name instead.
-
-### Custom case id pattern
-
-```js
-{
-  caseIdPattern: /TC-(\d+)/, // matches "TC-1234" in titles or tags
-}
-```
-
-The pattern must contain exactly one capturing group for the numeric id. It is applied consistently everywhere a case id is extracted — Mocha/Playwright titles, and Cucumber/playwright-bdd `@tags` — since all of them go through the same `extractTestCaseId(title, pattern, tags)` helper, which checks tags first and falls back to the title/scenario name.
-
-### Test configurations (Android vs iOS, Chrome vs Firefox, …)
-
-If the same test case exists in your suite under several Azure DevOps _configurations_, tell each worker which configuration it represents. Without this, a result published for one configuration can overwrite another configuration's result for the same case.
-
-```js
-{
-  configurationId: Number(process.env.ADO_CONFIGURATION_ID), // e.g. 1042 = Android
-}
-```
-
-With `configurationId` set, the service:
-
-- attaches only the test point belonging to that configuration to the run, and
-- updates only the result for that configuration, leaving the others untouched.
-
-Run one WebdriverIO process per configuration:
-
-```bash
-ADO_CONFIGURATION_ID=1042 npx wdio run wdio.android.conf.ts
-ADO_CONFIGURATION_ID=1043 npx wdio run wdio.ios.conf.ts
-```
-
-Find the id under **Test Plans → Configurations**, or at `https://dev.azure.com/<org>/<project>/_apis/test/configurations`.
-
-> While `configurationId` is set, points and results that have no configuration are skipped. Leave it unset for suites that don't use configurations.
-
-### Reusing an existing Test Run
-
-A run is created in `onPrepare` **only** when no run id is available. The id is looked up in this order:
-
-1. the `AZURE_DEVOPS_TEST_RUN_ID` environment variable, then
-2. the `runId` service option.
-
-Both `0` and an unset value mean "create a new run". To publish into a run created elsewhere (e.g. by an earlier pipeline stage):
-
-```bash
-# PowerShell
-$env:AZURE_DEVOPS_TEST_RUN_ID = "12345"; npx wdio run wdio.conf.ts
-
-# bash
-AZURE_DEVOPS_TEST_RUN_ID=12345 npx wdio run wdio.conf.ts
-```
-
-The variable name is exported as a constant so you don't have to hardcode it:
-
-```ts
-import { RUN_ID_ENV_VAR } from "@virag8/azure-devops-test-publisher";
-
-console.log(`Publishing into run ${process.env[RUN_ID_ENV_VAR]}`);
-```
-
-Workers inherit the variable from the launcher process, so it is readable inside specs and hooks. It is cleared again in `onComplete` and does not propagate back to the shell that started WebdriverIO.
-
-### Validating configuration early
-
-`orgUrl`, `projectId`, `planId` and `suiteId` are mandatory. If any is missing or malformed, construction throws `AzureDevOpsConfigError` before a single test runs:
-
-```ts
-import {
-  AzureDevOpsService,
-  AzureDevOpsConfigError,
-} from "@virag8/azure-devops-test-publisher";
-
-try {
-  new AzureDevOpsService(options);
-} catch (err) {
-  if (err instanceof AzureDevOpsConfigError) {
-    console.error("Bad Azure DevOps config:", err.missing); // e.g. ["planId", "suiteId"]
-  }
-}
-```
+As results are published, each one is logged with the suite it landed in:
 
 ```
-AzureDevOpsConfigError: Missing or invalid Azure DevOps option(s): planId, suiteId.
-Provide them when constructing the service or in the wdio service options.
+Publishing to Azure DevOps - suite 456, test case 1234: Passed
+Publishing to Azure DevOps - suite 789, test case 1235: Failed
 ```
-
-A missing `token` is **not** an error — it simply disables publishing with a warning, which keeps local runs working without a PAT.
-
-### Troubleshooting unmatched test cases
-
-When a case id from a title or tag has no matching test point, the exact ids are logged:
-
-```
-No test point found for test case id(s) 9999 in project "MyProject", plan 123, suite 456, configuration 1042.
-The suite exposes 12 point(s) for case id(s) 1001, 1002, … Check that the case ids in your test
-titles belong to this plan/suite and configuration.
-```
-
-Common causes: the case lives in a different suite, the suite id belongs to another plan, or the worker's `configurationId` doesn't match the point's configuration. Set `debug: true` to also dump the raw API payloads.
-
-## Usage with Playwright
-
-Register `AzureDevOpsPlaywrightReporter` as a reporter in `playwright.config.ts`, importing it from the `/playwright` subpath:
-
-```ts
-import { defineConfig } from "@playwright/test";
-
-export default defineConfig({
-  use: {
-    screenshot: "only-on-failure", // required for failure screenshots to be attached
-  },
-  reporter: [
-    ["list"],
-    [
-      "@virag8/azure-devops-test-publisher/playwright",
-      {
-        orgUrl: process.env.AZURE_ORG_URL,
-        token: process.env.AZURE_PAT,
-        projectId: "MyProject", // name or GUID
-        planId: 123,
-        suiteId: 456,
-        screenshotOnFailure: true, // optional, defaults to true
-      },
-    ],
-  ],
-});
-```
-
-Requires `@playwright/test` as a peer dependency (already present if you're using Playwright's test runner).
-
-Unlike the WebdriverIO service, Playwright reporters run in a single main process regardless of how many workers execute tests, so there's no run id to share across processes — the reporter creates the run in `onBegin`, collects every test via `onTestEnd`, and publishes + completes the run in `onEnd`.
-
-### Test titles
-
-Tag the test title with the Azure DevOps test case id, same as Mocha:
-
-```ts
-test("C1234 login works", async ({ page }) => {
-  // ...
-});
-```
-
-### playwright-bdd feature files
-
-`playwright-bdd` compiles each Gherkin scenario into a real Playwright `TestCase`, but exposes `@tags` as `annotations` (type `"tag"`) rather than appending them to the title. The reporter checks tag annotations first and falls back to the scenario name, so tag your scenarios the same way as the WDIO Cucumber integration:
-
-```gherkin
-@C1234
-Scenario: User can log in
-  Given the user is on the login page
-  When they submit valid credentials
-  Then they should see the dashboard
-```
-
-### Screenshots
-
-The reporter attaches whatever screenshot Playwright itself captured on failure — it does not take a new one. Set `use.screenshot` to `"only-on-failure"` or `"on"` in your Playwright config for this to have an attachment to pick up.
-
-### Options
-
-`AzureDevOpsPlaywrightOptions` has the same shape as `AzureDevOpsWdioOptions` (see [Configuration reference](#configuration-reference)): `screenshotOnFailure`, `configurationId`, plus everything from `AzureDevOpsOptions`. The same `runId`, `configurationId`, and `AzureDevOpsConfigError` behavior described above for WebdriverIO applies here too.
 
 ## Usage as a standalone reporter
 
@@ -306,26 +124,36 @@ await ado.completeRun(runId);
 
 `createRun()` creates an **empty** run; points are attached by `publishResults` as results come in, so cases that never executed stay out of the run.
 
+Pass a per-result `suiteId` to publish one batch across several suites; points are fetched once per distinct suite:
+
+```ts
+await ado.publishResults([
+  { testCaseId: 1234, suiteId: 456, outcome: "Passed" },
+  { testCaseId: 1235, suiteId: 789, outcome: "Failed" },
+]);
+```
+
 ## Configuration reference
 
 ### `AzureDevOpsOptions`
 
-| Option          | Type       | Description                                                                          |
-| --------------- | ---------- | ------------------------------------------------------------------------------------ |
-| `orgUrl`        | `string`   | Azure DevOps organization URL.                                                       |
-| `token`         | `string`   | Personal access token with Test Plan read/write permissions.                         |
-| `projectId`     | `string`   | Azure DevOps project **name or id (GUID)** — both are accepted.                      |
-| `planId`        | `number`   | Test plan id.                                                                        |
-| `suiteId`       | `number`   | Test suite id within the plan.                                                       |
-| `runName`       | `string?`  | Custom name for created runs.                                                        |
-| `runId`         | `number?`  | Reuse this existing run instead of creating a new one. `0` means "create a new run". |
-| `reuseTestRun`  | `boolean?` | Keep a single run open across multiple `publishResults` calls.                       |
-| `caseIdPattern` | `RegExp?`  | Custom regex (one capturing group) for extracting the test case id.                  |
-| `debug`         | `boolean?` | Log raw Azure DevOps API payloads. Defaults to `false`.                              |
+| Option           | Type       | Description                                                                                                                                                 |
+| ---------------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `orgUrl`         | `string`   | Azure DevOps organization URL.                                                                                                                              |
+| `token`          | `string`   | Personal access token with Test Plan read/write permissions.                                                                                                |
+| `projectId`      | `string`   | Azure DevOps project **name or id (GUID)** — both are accepted.                                                                                             |
+| `planId`         | `number`   | Test plan id.                                                                                                                                               |
+| `suiteId`        | `number?`  | Test suite id within the plan. Required unless `suiteIdPattern` is set; when both are given it is only the fallback for tests that don't match the pattern. |
+| `runName`        | `string?`  | Custom name for created runs.                                                                                                                               |
+| `runId`          | `number?`  | Reuse this existing run instead of creating a new one. `0` means "create a new run".                                                                        |
+| `reuseTestRun`   | `boolean?` | Keep a single run open across multiple `publishResults` calls.                                                                                              |
+| `caseIdPattern`  | `RegExp?`  | Custom regex (one capturing group) for extracting the test case id.                                                                                         |
+| `suiteIdPattern` | `RegExp?`  | Regex (one capturing group) that reads the suite id from each test's tags or title. Overrides `suiteId` per test case.                                      |
+| `debug`          | `boolean?` | Log raw Azure DevOps API payloads. Defaults to `false`.                                                                                                     |
 
 > **Note on `projectId`** — despite the name, this accepts either the project's display name (`"MyProject"`) or its GUID (`"b9e8c7cb-..."`). Prefer the GUID: it stays stable if the project is ever renamed, and it avoids URL-encoding issues with names that contain spaces. You can find it at `https://dev.azure.com/<org>/_apis/projects`.
 
-### `AzureDevOpsWdioOptions` (extends `AzureDevOpsOptions`)
+### `AzureDevOpsWdioOptions` / `AzureDevOpsPlaywrightOptions` (extend `AzureDevOpsOptions`)
 
 | Option                | Type       | Description                                                                                                                                                                                                                                                                            |
 | --------------------- | ---------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -347,6 +175,8 @@ await ado.completeRun(runId);
 | --------- | ---------- | ------------------------------------------------------- |
 | `missing` | `string[]` | The mandatory option keys that were missing or invalid. |
 | `message` | `string`   | Human readable summary listing every offending key.     |
+
+`orgUrl`, `projectId`, `planId` and `suiteId` are validated when a service/reporter is constructed, before any test runs (`suiteId` only when `suiteIdPattern` is not set). A missing `token` is **not** an error — it disables publishing with a warning, which keeps local runs working without a PAT.
 
 ## Development
 

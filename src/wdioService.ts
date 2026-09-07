@@ -7,7 +7,12 @@ import {
   TestAttachment,
   TestResultItem,
 } from "./types";
-import { extractTestCaseId, RUN_ID_ENV_VAR } from "./utils";
+import {
+  extractTestCaseId,
+  extractTestSuiteId,
+  logResultsToPublish,
+  RUN_ID_ENV_VAR,
+} from "./utils";
 
 const green = (text: string) => `\u001b[32m${text}\u001b[39m`;
 const boldCyanUnderline = (text: string) =>
@@ -96,6 +101,7 @@ export default class AzureDevOpsWdioService
 
     this.results.push({
       testCaseId: caseId,
+      suiteId: this.extractSuiteId(test.title),
       outcome: results.passed ? "Passed" : "Failed",
       errorMessage: results.error?.message,
       stackTrace: results.error?.stack,
@@ -115,6 +121,10 @@ export default class AzureDevOpsWdioService
 
     this.results.push({
       testCaseId: caseId,
+      suiteId: this.extractSuiteId(
+        world.pickle.name,
+        (world.pickle.tags ?? []).map((t) => t.name),
+      ),
       outcome: result.passed ? "Passed" : "Failed",
       errorMessage: this.stringifyError(result.error),
       stackTrace: this.stackTraceOf(result.error),
@@ -148,6 +158,8 @@ export default class AzureDevOpsWdioService
 
     const pending = this.results;
     this.results = [];
+
+    logResultsToPublish(pending, this._options.suiteId);
 
     try {
       await this.getService().publishResults(pending, {
@@ -184,6 +196,21 @@ export default class AzureDevOpsWdioService
       console.error("Failed to capture browser screenshot:", err);
       return [];
     }
+  }
+
+  /** Resolves the suite id from tags/title; `undefined` falls back to the configured `suiteId`. */
+  private extractSuiteId(title: string, tags?: string[]): number | undefined {
+    const pattern = this._options.suiteIdPattern;
+    if (!pattern) return undefined;
+
+    const suiteId = extractTestSuiteId(title, pattern, tags);
+    this.debug("Extracted suite id from test title/tags:", {
+      title,
+      tags,
+      pattern: String(pattern),
+      suiteId,
+    });
+    return suiteId ?? undefined;
   }
 
   private extractCucumberCaseId(world: CucumberWorld): number | null {

@@ -6,7 +6,12 @@ import {
   TestAttachment,
   TestResultItem,
 } from "./types";
-import { extractTestCaseId, RUN_ID_ENV_VAR } from "./utils";
+import {
+  extractTestCaseId,
+  extractTestSuiteId,
+  logResultsToPublish,
+  RUN_ID_ENV_VAR,
+} from "./utils";
 
 const green = (text: string) => `\u001b[32m${text}\u001b[39m`;
 const boldCyanUnderline = (text: string) =>
@@ -63,6 +68,7 @@ export default class AzureDevOpsPlaywrightReporter implements Reporter {
 
     this.results.push({
       testCaseId: caseId,
+      suiteId: this.extractSuiteId(test),
       outcome: this.mapOutcome(result.status),
       errorMessage:
         result.errors
@@ -82,6 +88,7 @@ export default class AzureDevOpsPlaywrightReporter implements Reporter {
 
   async onEnd(): Promise<void> {
     if (this.results.length > 0) {
+      logResultsToPublish(this.results, this.options.suiteId);
       try {
         await this.service.publishResults(this.results, {
           runId: this.runId,
@@ -113,12 +120,7 @@ export default class AzureDevOpsPlaywrightReporter implements Reporter {
    */
   private extractCaseId(test: TestCase): number | null {
     const pattern = this.options.caseIdPattern;
-    const tags = [
-      ...(test.tags ?? []),
-      ...test.annotations
-        .filter((a) => a.type === "tag")
-        .map((a) => a.description ?? ""),
-    ];
+    const tags = this.collectTags(test);
 
     const caseId = extractTestCaseId(test.title, pattern, tags);
     this.debug("Extracted case id from test title/tags:", {
@@ -128,6 +130,31 @@ export default class AzureDevOpsPlaywrightReporter implements Reporter {
       caseId,
     });
     return caseId;
+  }
+
+  /** Resolves the suite id from the test's tags/title; `undefined` falls back to the configured `suiteId`. */
+  private extractSuiteId(test: TestCase): number | undefined {
+    const pattern = this.options.suiteIdPattern;
+    if (!pattern) return undefined;
+
+    const tags = this.collectTags(test);
+    const suiteId = extractTestSuiteId(test.title, pattern, tags);
+    this.debug("Extracted suite id from test title/tags:", {
+      title: test.title,
+      tags,
+      pattern: String(pattern),
+      suiteId,
+    });
+    return suiteId ?? undefined;
+  }
+
+  private collectTags(test: TestCase): string[] {
+    return [
+      ...(test.tags ?? []),
+      ...test.annotations
+        .filter((a) => a.type === "tag")
+        .map((a) => a.description ?? ""),
+    ];
   }
 
   /** Reuses screenshots Playwright itself captured (e.g. `screenshot: "only-on-failure"`); it does not take a new one. */

@@ -4,12 +4,17 @@ import { IdentityRef } from "azure-devops-node-api/interfaces/common/VSSInterfac
 import {
   TestCaseResult,
   TestAttachmentRequestModel,
+  TestPoint,
 } from "azure-devops-node-api/interfaces/TestInterfaces";
 import { AzureDevOpsOptions, PublishOptions, TestResultItem } from "./types";
 
-/** True if `point`/`result` belongs to the same test case as `item`, and the same configuration when `item.configurationId` is set. */
+/** True if `point`/`result` belongs to the same test case as `item`, and the same configuration/suite when those are set on `item`. */
 function matchesTestCase(
-  point: { testCase?: { id?: string }; configuration?: { id?: string } },
+  point: {
+    testCase?: { id?: string };
+    configuration?: { id?: string };
+    suite?: { id?: string };
+  },
   item: TestResultItem,
 ): boolean {
   if (
@@ -17,6 +22,10 @@ function matchesTestCase(
     parseInt(point.testCase.id, 10) !== item.testCaseId
   ) {
     return false;
+  }
+  // `suite` is only present on test points, not on run results, so it can only narrow the match.
+  if (item.suiteId != null && point.suite?.id != null) {
+    if (parseInt(point.suite.id, 10) !== item.suiteId) return false;
   }
   if (item.configurationId == null) return true;
 
@@ -43,7 +52,10 @@ export function assertRequiredOptions(config: AzureDevOpsOptions): void {
   if (!config?.orgUrl?.trim()) missing.push("orgUrl");
   if (!config?.projectId?.toString().trim()) missing.push("projectId");
   if (!Number.isInteger(config?.planId)) missing.push("planId");
-  if (!Number.isInteger(config?.suiteId)) missing.push("suiteId");
+  // With `suiteIdPattern` the suite is resolved per test case, so the static option is optional.
+  if (!config?.suiteIdPattern && !Number.isInteger(config?.suiteId)) {
+    missing.push("suiteId");
+  }
 
   if (missing.length > 0) throw new AzureDevOpsConfigError(missing);
 }
@@ -106,14 +118,34 @@ export class AzureDevOpsService {
   }
 
   /** Human readable target used in warnings and errors. */
-  private describeTarget(configurationId?: number): string {
+  private describeTarget(
+    configurationId?: number,
+    suiteIds?: number[],
+  ): string {
+    const suites = suiteIds?.length
+      ? suiteIds
+      : this.config.suiteId != null
+        ? [this.config.suiteId]
+        : [];
     const parts = [
       `project "${this.config.projectId}"`,
       `plan ${this.config.planId}`,
-      `suite ${this.config.suiteId}`,
+      suites.length > 1
+        ? `suites ${suites.join(", ")}`
+        : `suite ${suites[0] ?? "unknown"}`,
     ];
     if (configurationId != null) parts.push(`configuration ${configurationId}`);
     return parts.join(", ");
+  }
+
+  /** Suites the given results target: the per-result `suiteId` when present, otherwise the configured one. */
+  private resolveSuiteIds(results: TestResultItem[]): number[] {
+    const suiteIds = new Set<number>();
+    for (const result of results) {
+      const suiteId = result.suiteId ?? this.config.suiteId;
+      if (Number.isInteger(suiteId)) suiteIds.add(suiteId as number);
+    }
+    return [...suiteIds];
   }
 
   /** Creates an empty run; points are added by `publishResults` as tests finish, so unexecuted cases are never marked in progress. */
@@ -143,6 +175,28 @@ export class AzureDevOpsService {
     return testRun.id;
   }
 
+  /** Fetches the points of every targeted suite, stamping the suite id onto points that omit it. */
+  private async fetchPoints(
+    testApi: ITestApi,
+    suiteIds: number[],
+  ): Promise<TestPoint[]> {
+    const points: TestPoint[] = [];
+    for (const suiteId of suiteIds) {
+      const suitePoints = await testApi.getPoints(
+        this.config.projectId,
+        this.config.planId,
+        suiteId,
+      );
+      points.push(
+        ...suitePoints.map((point) => ({
+          ...point,
+          suite: point.suite ?? { id: suiteId.toString() },
+        })),
+      );
+    }
+    return points;
+  }
+
   async publishResults(
     results: TestResultItem[],
     options: PublishOptions = {},
@@ -151,13 +205,9 @@ export class AzureDevOpsService {
     const testApi = await this.testApiPromise!;
 
     // 1. Get test points matching the local test cases
+    const suiteIds = this.resolveSuiteIds(results);
     const points =
-      options.points ??
-      (await testApi.getPoints(
-        this.config.projectId,
-        this.config.planId,
-        this.config.suiteId,
-      ));
+      options.points ?? (await this.fetchPoints(testApi, suiteIds));
     this.debug("Fetched test points:", points.length);
 
     const inTargetConfiguration = (item: {
@@ -186,7 +236,7 @@ export class AzureDevOpsService {
 
     if (unmatchedCaseIds.length > 0) {
       console.warn(
-        `No test point found for test case id(s) ${unmatchedCaseIds.join(", ")} in ${this.describeTarget(options.configurationId)}. ` +
+        `No test point found for test case id(s) ${unmatchedCaseIds.join(", ")} in ${this.describeTarget(options.configurationId, suiteIds)}. ` +
           `The suite exposes ${points.length} point(s) for case id(s) ${
             points
               .map((p) => p.testCase?.id)
@@ -273,7 +323,7 @@ export class AzureDevOpsService {
 
       if (!testRun.id) {
         throw new Error(
-          `Failed to create Test Run in Azure DevOps for ${this.describeTarget(options.configurationId)} with point id(s) ${pointIds.join(", ")}.`,
+          `Failed to create Test Run in Azure DevOps for ${this.describeTarget(options.configurationId, suiteIds)} with point id(s) ${pointIds.join(", ")}.`,
         );
       }
       runId = testRun.id;

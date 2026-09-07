@@ -6,7 +6,8 @@ export interface AzureDevOpsOptions {
   /** Project display name or its GUID; Azure DevOps accepts either. */
   projectId: string;
   planId: number;
-  suiteId: number;
+  /** Suite id every result belongs to. Optional (and ignored) when `suiteIdPattern` is set. */
+  suiteId?: number;
   runName?: string;
   /** Reuse this already existing test run instead of creating a new one. */
   runId?: number;
@@ -14,6 +15,8 @@ export interface AzureDevOpsOptions {
   reuseTestRun?: boolean;
   /** Custom regex (with a capturing group for the numeric id) used instead of the default `C123`/`#123` matcher. */
   caseIdPattern?: RegExp;
+  /** Regex (with a capturing group for the numeric id) that reads the suite id from each test's tags or title. When set, the static `suiteId` option is ignored and every test case can resolve to a different suite. */
+  suiteIdPattern?: RegExp;
   /** Log Azure DevOps API payloads to the console. Off by default. */
   debug?: boolean;
 }
@@ -53,6 +56,8 @@ export interface TestAttachment {
 
 export interface TestResultItem {
   testCaseId: number;
+  /** Suite this case was resolved to via `suiteIdPattern`; falls back to the configured `suiteId`. */
+  suiteId?: number;
   outcome: "Passed" | "Failed" | "Inconclusive";
   errorMessage?: string;
   /** Stack trace of the failure, if available; Azure DevOps truncates this to 1000 chars. */
