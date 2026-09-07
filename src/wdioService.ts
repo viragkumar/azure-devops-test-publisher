@@ -8,6 +8,7 @@ import {
   TestResultItem,
 } from "./types";
 import { extractTestCaseId, RUN_ID_ENV_VAR } from "./utils";
+const chalk = require("chalk");
 
 /** Re-exported for backward compatibility; also shared with the Playwright reporter. */
 export { RUN_ID_ENV_VAR };
@@ -48,7 +49,9 @@ export default class AzureDevOpsWdioService
     const existingRunId = this.resolveRunId();
     if (existingRunId) {
       process.env[RUN_ID_ENV_VAR] = existingRunId.toString();
-      console.log(`Reusing Azure DevOps test run: ${existingRunId}`);
+      console.log(
+        chalk.green(`Reusing Azure DevOps test run: ${existingRunId}`),
+      );
       return;
     }
 
@@ -56,7 +59,7 @@ export default class AzureDevOpsWdioService
     if (runId === undefined) return;
 
     process.env[RUN_ID_ENV_VAR] = runId.toString();
-    console.log(`Azure DevOps test run created: ${runId}`);
+    console.log(chalk.green(`Azure DevOps test run created: ${runId}`));
   }
 
   async onComplete(): Promise<void> {
@@ -65,7 +68,13 @@ export default class AzureDevOpsWdioService
 
     await this.getService().completeRun(runId);
     delete process.env[RUN_ID_ENV_VAR];
-    console.log(`Azure DevOps test run completed: ${runId}`);
+    const url = new URL(
+      `/${this._options.projectId}/_testManagement/runs`,
+      `https://${this._options.orgUrl}`,
+    );
+    console.log(
+      `View completed Azure DevOps test run here: ${chalk.bold.cyan.underline(url.toString())}`,
+    );
   }
 
   // --- worker process hooks ---
