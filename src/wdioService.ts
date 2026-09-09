@@ -138,14 +138,18 @@ export default class AzureDevOpsWdioService
     });
   }
 
-  /** Cucumber's `error` is typed as a string, but some frameworks still pass a raw `Error`. */
+  /** Cucumber's `error` is typically a pre-formatted stack trace string, but some frameworks still pass a raw `Error`. */
   private stringifyError(error: unknown): string | undefined {
     if (!error) return undefined;
-    return error instanceof Error ? error.message : String(error);
+    return error instanceof Error
+      ? error.message
+      : String(error).split("\n")[0];
   }
 
+  /** When `error` is a string, it already *is* the stack trace, so it's returned as-is. */
   private stackTraceOf(error: unknown): string | undefined {
-    return error instanceof Error ? error.stack : undefined;
+    if (!error) return undefined;
+    return error instanceof Error ? error.stack : String(error);
   }
 
   async after(): Promise<void> {
