@@ -93,6 +93,11 @@ export class AzureDevOpsService {
     return this.currentRunId;
   }
 
+  /** Whether a PAT was provided; when false, every public method is a no-op. */
+  get isEnabled(): boolean {
+    return this.enabled;
+  }
+
   /** PAT owner, surfaced as "Run by" on the result; Azure leaves the field blank otherwise. */
   private async getRunBy(): Promise<IdentityRef | undefined> {
     try {

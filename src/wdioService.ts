@@ -54,6 +54,9 @@ export default class AzureDevOpsWdioService
   // --- launcher process hooks ---
 
   async onPrepare(): Promise<void> {
+    const service = this.getService();
+    if (!service.isEnabled) return;
+
     const existingRunId = this.resolveRunId();
     if (existingRunId) {
       process.env[RUN_ID_ENV_VAR] = existingRunId.toString();
@@ -61,7 +64,7 @@ export default class AzureDevOpsWdioService
       return;
     }
 
-    const runId = await this.getService().createRun();
+    const runId = await service.createRun();
     if (runId === undefined) return;
 
     process.env[RUN_ID_ENV_VAR] = runId.toString();
@@ -72,8 +75,11 @@ export default class AzureDevOpsWdioService
     const runId = this.resolveRunId();
     if (!runId) return;
 
-    await this.getService().completeRun(runId);
+    const service = this.getService();
+    await service.completeRun(runId);
     delete process.env[RUN_ID_ENV_VAR];
+    if (!service.isEnabled) return;
+
     console.log(green(`Azure DevOps test run completed: ${runId}`));
     const url = `${this._options.orgUrl}/${this._options.projectId}/_testManagement/runs?runId=${runId}`;
     console.log(`Published Test Run: ${boldCyanUnderline(url)}`);
